@@ -3,6 +3,7 @@ package Vista;
 import Controlador.ArticuloControlador;
 import Controlador.MovimientoControlador;
 import Modelo.Articulo;
+import Modelo.Usuario;
 import Modelo.Movimiento;
 import Modelo.Ubicacion;
 import Modelo.UbicacionDAO;
@@ -10,26 +11,50 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Date; // Necesario para jDateVencimiento
+import java.util.Date;
 import java.util.List;
+import Modelo.CapacidadInsuficienteException;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class PanelEntrada extends javax.swing.JFrame {
 
     private final ArticuloControlador articuloControl = new ArticuloControlador();
     private final MovimientoControlador movimientoControl = new MovimientoControlador();
     private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
+    private Usuario usuarioActual;
+    private Long idMovimientoSeleccionado = null; 
 
-    // NOTA IMPORTANTE: jDateVencimiento NO está definido en el código original.
-    // Asumimos que es una instancia de JDateChooser o similar, que tiene un método getDate().
-    // Aquí declaramos una simulación para que el código compile, si no está en initComponents.
-    // private final com.toedter.calendar.JDateChooser jDateVencimiento = new com.toedter.calendar.JDateChooser();
-
-    public PanelEntrada() {
+    // Constructor que recibe el usuario
+    public PanelEntrada(Usuario usuario) {
         initComponents();
+        this.usuarioActual = usuario;
+        
+        // ⭐ AJUSTE: Ocultar bModificar si no es Administrador ⭐
+        ocultarBotonModificar(); 
+        
         cargarCombos();
         cargarTablaMovimientos();
         configurarEventosCheckboxes();
         bRegistrarEntrada.addActionListener(e -> onRegistrarEntrada());
+        configurarEventoTabla();
+    }
+    
+    // Constructor vacío
+    public PanelEntrada() {
+        this(null);
+    }
+    
+    // -----------------------------------------------------------------------
+    // --- LÓGICA DE VISIBILIDAD DEL BOTÓN MODIFICAR ---
+    // -----------------------------------------------------------------------
+    
+    private void ocultarBotonModificar() {
+        // Si el usuario no es 'Administrador', el botón de Modificar se oculta.
+        // Se asume que existe un componente llamado 'bModificar'.
+        if (usuarioActual != null && !"Administrador".equals(usuarioActual.getRol())) {
+            bModificar.setVisible(false);
+        }
     }
 
     /** Configura la lógica para mostrar/ocultar campos según checkboxes */
@@ -43,16 +68,16 @@ public class PanelEntrada extends javax.swing.JFrame {
         jCheckBoxVencimiento.addActionListener(e -> {
             boolean vencible = jCheckBoxVencimiento.isSelected();
             jLabelVencimiento.setVisible(vencible);
-            // El componente jDateVencimiento debe estar visible/oculto
             jDateVencimiento.setVisible(vencible); 
-            // jTFVencimiento1 ya no existe, usamos jDateVencimiento
         });
 
-        // Inicialmente ocultar vencimiento
         jLabelVencimiento.setVisible(false);
         jDateVencimiento.setVisible(false);
-        // jTFVencimiento1.setVisible(false); // Eliminado
     }
+    
+    // -----------------------------------------------------------------------
+    // --- LÓGICA DE CARGA DE COMBOS Y REGISTRO ---
+    // -----------------------------------------------------------------------
 
     /** Carga los artículos y ubicaciones existentes */
     private void cargarCombos() {
@@ -77,128 +102,161 @@ public class PanelEntrada extends javax.swing.JFrame {
         }
     }
 
-    /** Registrar entrada verificando stock y capacidad */
+    // --- MÉTODO onRegistrarEntrada() (SE MANTIENE IGUAL) ---
     private void onRegistrarEntrada() {
-        try {
-            Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
-            Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
-            int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
+        
+        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+        int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
 
+        try {
             if (articulo == null || ubicacion == null) {
                 JOptionPane.showMessageDialog(this,
-                                "Selecciona un artículo y una ubicación.",
-                                "Validación", JOptionPane.WARNING_MESSAGE);
+                        "Selecciona un artículo y una ubicación.",
+                        "Validación", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
             if (cantidad <= 0) {
                 JOptionPane.showMessageDialog(this,
-                                "La cantidad debe ser mayor que cero.",
-                                "Validación", JOptionPane.WARNING_MESSAGE);
+                        "La cantidad debe ser mayor que cero.",
+                        "Validación", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            // --- Verificación de capacidad ---
-            Ubicacion ubicacionActualizada = ubicacionDAO.obtenerPorId(ubicacion.getId_ubicacion());
-            double capacidadRestante = ubicacionActualizada.getCapacidadRestante();
-            double espacioOcupado = articulo.getEspacioUnitario() * cantidad;
-
-            if (espacioOcupado > capacidadRestante) {
-                JOptionPane.showMessageDialog(this,
-                                "La ubicación no tiene suficiente capacidad.\n" +
-                                "Capacidad restante: " + String.format("%.3f", capacidadRestante) + " m³\n" +
-                                "Espacio requerido: " + String.format("%.3f", espacioOcupado) + " m³",
-                                "Capacidad insuficiente", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            // --- Obtener fecha de vencimiento ---
             Timestamp fechaVencimiento = null;
             if (jCheckBoxVencimiento.isSelected()) {
                 Date selectedDate = jDateVencimiento.getDate();
                 if (selectedDate == null) {
-                     JOptionPane.showMessageDialog(this,
+                    JOptionPane.showMessageDialog(this,
                             "Selecciona una fecha de vencimiento válida.",
                             "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
-                // Convertir java.util.Date a java.sql.Timestamp
                 fechaVencimiento = new Timestamp(selectedDate.getTime());
             }
 
-            // --- Obtener Costo ---
             Double costo = null;
             if (!jCheckBoxDonado.isSelected()) {
                 double costoVal = parseDoubleSafe(jTFCosto.getText());
                 costo = costoVal > 0 ? costoVal : null;
             }
 
-            // --- Registrar entrada con los valores obtenidos ---
             boolean ok = movimientoControl.registrarEntrada(
                 articulo.getIdArticulo(),
                 cantidad,
                 ubicacion.getId_ubicacion(),
                 jFTEntregadoA.getText().trim(),
                 jCheckBoxDonado.isSelected(),
-                costo, // Usamos la variable local ya validada
-                fechaVencimiento // Usamos la variable local ya validada
+                costo,
+                fechaVencimiento
             );
-            
-            // --- Bloque de Movimiento ya no es necesario, registrarEntrada lo hace
-            /*
-            Movimiento mov = new Movimiento();
-            mov.setIdArticulo(articulo.getIdArticulo());
-            mov.setTipo("ENTRADA");
-            mov.setCantidad(cantidad);
-            // ... otros setters
-            mov.setCosto(costo);
-            mov.setFechaVencimiento(fechaVencimiento);
-            // ...
-            */
 
             if (ok) {
                 JOptionPane.showMessageDialog(this,
-                                "Entrada registrada correctamente.",
-                                "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                // Limpiar campos después de registrar
+                        "Entrada registrada correctamente.",
+                        "Éxito", JOptionPane.INFORMATION_MESSAGE);
                 jFTCantidadEntrada.setText("");
                 jFTEntregadoA.setText("");
                 jTFCosto.setText("");
-                jDateVencimiento.setDate(null); // Limpiar el JDateChooser
-                
-                cargarTablaMovimientos();
+                jDateVencimiento.setDate(null);
+                cargarTablaMovimientos(); 
             } else {
                 JOptionPane.showMessageDialog(this,
-                                "Error al registrar la entrada.",
-                                "Error", JOptionPane.ERROR_MESSAGE);
+                        "Error desconocido al registrar la entrada.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             }
+
+        } catch (CapacidadInsuficienteException e) {
+            
+            String mensajeError = String.format(
+                "La ubicación '%s' no tiene suficiente capacidad.\n" +
+                "Capacidad restante: %.3f m³\n" +
+                "Espacio requerido:  %.3f m³\n\n",
+                e.getNombreUbicacion(),
+                e.getCapacidadRestante(),
+                e.getEspacioRequerido()
+            );
+
+            List<Ubicacion> sugerencias = e.getSugerencias();
+            if (sugerencias.isEmpty()) {
+                mensajeError += "No se encontraron otras ubicaciones con espacio suficiente.";
+            } else {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Sugerencias (con espacio disponible):\n");
+                for (Ubicacion uSugerida : sugerencias) {
+                    sb.append(String.format("- %s (Restante: %.3f m³)\n",
+                        uSugerida.getNombre(),
+                        uSugerida.getCapacidadRestante()
+                    ));
+                }
+                mensajeError += sb.toString();
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    mensajeError,
+                    "Capacidad Insuficiente",
+                    JOptionPane.WARNING_MESSAGE);
 
         } catch (SQLException sqe) {
             JOptionPane.showMessageDialog(this,
-                            "Error SQL: " + sqe.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE);
+                    "Error SQL: " + sqe.getMessage(),
+                    "Error de Base de Datos", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
-                            "Error: " + ex.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE);
+                    "Error inesperado: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
         }
     }
+    
+    // -----------------------------------------------------------------------
+    // --- LÓGICA DE TABLA (CARGAR Y EVENTO) ---
+    // -----------------------------------------------------------------------
 
     /** Carga los últimos movimientos de tipo ENTRADA en la tabla */
     private void cargarTablaMovimientos() {
         try {
-            DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
-            model.setRowCount(0);
+            
+            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación", "Costo", "Vencimiento", "Entregado Por", "Fecha/Hora"};
+            
+            // Creamos un DefaultTableModel que puede manejar la inserción de Long y Timestamp
+            DefaultTableModel nuevoModel = new DefaultTableModel(columnas, 0) {
+                
+                // ⭐ IMPORTANTE: Sobreescribimos getColumnClass para que reconozca los tipos de datos
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    if (columnIndex == 0) return Long.class;      // ID
+                    if (columnIndex == 2) return Integer.class;   // Cantidad
+                    if (columnIndex == 5) return Timestamp.class; // Vencimiento (requiere Timestamp o null)
+                    return Object.class;
+                }
+
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+            };
+            
+            jTable1.setModel(nuevoModel);
+            // Ocultar la columna del ID (Columna 0)
+            jTable1.getColumnModel().getColumn(0).setMinWidth(0);
+            jTable1.getColumnModel().getColumn(0).setMaxWidth(0);
+            jTable1.getColumnModel().getColumn(0).setWidth(0);
 
             var lista = movimientoControl.obtenerEntradas();
 
             for (Movimiento m : lista) {
-                model.addRow(new Object[]{
+                // ⭐ CORRECCIÓN: Si la fecha de vencimiento es null, insertamos null
+                // Esto previene que el DateRenderer intente formatear el String "-" como fecha.
+                Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+                
+                nuevoModel.addRow(new Object[]{
+                    m.getIdMovimiento(), 
                     m.getNombreArticulo(),
                     m.getCantidad(),
                     m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-                    m.getCosto() != null ? m.getCosto() : "-",
-                    (m.getFechaVencimiento() != null ? m.getFechaVencimiento() : "-"),
+                    m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
+                    fechaVencimientoParaTabla, // ⬅️ Ahora es Timestamp o null
                     (m.getEntregado() != null ? m.getEntregado() : "-"),
                     m.getFechaHora()
                 });
@@ -208,7 +266,88 @@ public class PanelEntrada extends javax.swing.JFrame {
             e.printStackTrace();
         }
     }
+    
+    private void configurarEventoTabla() {
+        jTable1.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    cargarFormularioDesdeTablas();
+                }
+            }
+        });
+    }
 
+    /** Carga los datos de la fila seleccionada de la tabla al formulario. */
+    private void cargarFormularioDesdeTablas() {
+        int fila = jTable1.getSelectedRow();
+        if (fila >= 0) {
+            DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
+
+            // 1. Obtener el ID del movimiento (Columna 0)
+            // ⭐ CORRECCIÓN DE CLASSCASTEXCEPTION: Manejar Integer/Long de forma segura
+            Object idObj = model.getValueAt(fila, 0);
+            Long idMov = null;
+            if (idObj instanceof Integer) {
+                idMov = ((Integer) idObj).longValue();
+            } else if (idObj instanceof Long) {
+                idMov = (Long) idObj;
+            }
+            this.idMovimientoSeleccionado = idMov;
+            
+            // 2. Obtener los nombres de Artículo y Ubicación
+            String nombreArticulo = (String) model.getValueAt(fila, 1);
+            String nombreUbicacion = (String) model.getValueAt(fila, 3);
+            
+            // 3. Cantidad y Entregado
+            jFTCantidadEntrada.setText(model.getValueAt(fila, 2).toString());
+            jFTEntregadoA.setText((String) model.getValueAt(fila, 6));
+
+            // 4. Costo y Donado
+            // El costo en la tabla ahora es un String ("XX.XX" o "-")
+            String costoStr = (String) model.getValueAt(fila, 4); 
+            boolean esDonado = costoStr.equals("-");
+            jCheckBoxDonado.setSelected(esDonado);
+            jTFCosto.setText(esDonado ? "" : costoStr);
+            jTFCosto.setVisible(!esDonado);
+            jLabelCosto.setVisible(!esDonado);
+
+            // 5. Vencimiento
+            // ⭐ CORRECCIÓN: La tabla ahora contiene Timestamp o null
+            Object vencimientoObj = model.getValueAt(fila, 5); 
+            boolean tieneVencimiento = (vencimientoObj instanceof Timestamp);
+            
+            jCheckBoxVencimiento.setSelected(tieneVencimiento);
+            jDateVencimiento.setVisible(tieneVencimiento);
+            jLabelVencimiento.setVisible(tieneVencimiento);
+            
+            if (tieneVencimiento) {
+                jDateVencimiento.setDate(new Date(((Timestamp) vencimientoObj).getTime()));
+            } else {
+                jDateVencimiento.setDate(null);
+            }
+
+            // 6. Seleccionar en Combobox
+            seleccionarEnComboBox(jCBArticuloEntrada, nombreArticulo);
+            seleccionarEnComboBox(jCBUbicacionEntrada, nombreUbicacion);
+        }
+    }
+    
+    /** Método auxiliar para seleccionar un ítem por su nombre en un JComboBox */
+    private <T> void seleccionarEnComboBox(JComboBox<T> combo, String nombre) {
+        if (nombre == null) return;
+        DefaultComboBoxModel<T> model = (DefaultComboBoxModel<T>) combo.getModel();
+        for (int i = 0; i < model.getSize(); i++) {
+            T item = model.getElementAt(i);
+            // Esto asume que el método toString() del objeto Articulo/Ubicacion devuelve el nombre
+            if (item != null && item.toString().equals(nombre)) {
+                combo.setSelectedItem(item);
+                return;
+            }
+        }
+    }
+
+    // --- MÉTODOS AUXILIARES ---
     private int parseIntSafe(String s) {
         try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); }
         catch (Exception e) { return 0; }
@@ -243,18 +382,22 @@ public class PanelEntrada extends javax.swing.JFrame {
         jLabel16 = new javax.swing.JLabel();
         jLabel17 = new javax.swing.JLabel();
         jFTCantidadEntrada = new javax.swing.JFormattedTextField();
-        bRegistrarEntrada = new javax.swing.JButton();
         jCBArticuloEntrada = new javax.swing.JComboBox<>();
         jLabel2 = new javax.swing.JLabel();
         jFTEntregadoA = new javax.swing.JFormattedTextField();
         jCheckBoxVencimiento = new javax.swing.JCheckBox();
         jCheckBoxDonado = new javax.swing.JCheckBox();
-        jLabelCosto = new javax.swing.JLabel();
         jLabelVencimiento = new javax.swing.JLabel();
+        jLabelCosto = new javax.swing.JLabel();
         jTFCosto = new javax.swing.JTextField();
         jDateVencimiento = new com.toedter.calendar.JDateChooser();
         jScrollPane1 = new javax.swing.JScrollPane();
         jTable1 = new javax.swing.JTable();
+        jPanel5 = new javax.swing.JPanel();
+        bRegistrarEntrada = new javax.swing.JButton();
+        bConsultar = new javax.swing.JButton();
+        bVerTodo = new javax.swing.JButton();
+        bModificar = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -331,7 +474,7 @@ public class PanelEntrada extends javax.swing.JFrame {
 
         jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 800, 60));
 
-        jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        jPanel4.setBackground(new java.awt.Color(255, 255, 255));
         jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
@@ -368,17 +511,6 @@ public class PanelEntrada extends javax.swing.JFrame {
         });
         jPanel4.add(jFTCantidadEntrada, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 90, 160, 30));
 
-        bRegistrarEntrada.setBackground(new java.awt.Color(13, 51, 131));
-        bRegistrarEntrada.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bRegistrarEntrada.setForeground(new java.awt.Color(255, 255, 255));
-        bRegistrarEntrada.setText("Registrar");
-        bRegistrarEntrada.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bRegistrarEntradaActionPerformed(evt);
-            }
-        });
-        jPanel4.add(bRegistrarEntrada, new org.netbeans.lib.awtextra.AbsoluteConstraints(100, 440, 160, 30));
-
         jCBArticuloEntrada.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jCBArticuloEntradaActionPerformed(evt);
@@ -410,17 +542,15 @@ public class PanelEntrada extends javax.swing.JFrame {
         });
         jPanel4.add(jCheckBoxDonado, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 290, 150, 20));
 
-        jLabelCosto.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
-        jLabelCosto.setText("Costo:");
-        jPanel4.add(jLabelCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 170, 30));
-
         jLabelVencimiento.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
         jLabelVencimiento.setText("Fecha de Vencimiento:");
         jPanel4.add(jLabelVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 400, 170, 30));
+
+        jLabelCosto.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
+        jLabelCosto.setText("Costo:");
+        jPanel4.add(jLabelCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 170, 30));
         jPanel4.add(jTFCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 310, 160, 30));
         jPanel4.add(jDateVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(190, 400, 150, 30));
-
-        jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 60, 350, 480));
 
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -435,13 +565,65 @@ public class PanelEntrada extends javax.swing.JFrame {
         ));
         jScrollPane1.setViewportView(jTable1);
 
-        jPanel1.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 60, -1, 480));
+        jPanel4.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 0, -1, 430));
+
+        jPanel5.setBackground(new java.awt.Color(255, 255, 255));
+        jPanel5.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 70, 5));
+
+        bRegistrarEntrada.setBackground(new java.awt.Color(13, 51, 131));
+        bRegistrarEntrada.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bRegistrarEntrada.setForeground(new java.awt.Color(255, 255, 255));
+        bRegistrarEntrada.setText("Registrar");
+        bRegistrarEntrada.setMaximumSize(new java.awt.Dimension(120, 32));
+        bRegistrarEntrada.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bRegistrarEntradaActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bRegistrarEntrada);
+
+        bConsultar.setBackground(new java.awt.Color(13, 51, 131));
+        bConsultar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bConsultar.setForeground(new java.awt.Color(255, 255, 255));
+        bConsultar.setText("Consultar");
+        bConsultar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bConsultarActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bConsultar);
+
+        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
+        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
+        bVerTodo.setText("Ver todo");
+        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bVerTodoActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bVerTodo);
+
+        bModificar.setBackground(new java.awt.Color(13, 51, 131));
+        bModificar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bModificar.setForeground(new java.awt.Color(255, 255, 255));
+        bModificar.setText("Modificar");
+        bModificar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bModificarActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bModificar);
+
+        jPanel4.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 430, 800, 50));
+
+        jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 60, 800, 480));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 802, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -450,10 +632,6 @@ public class PanelEntrada extends javax.swing.JFrame {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void jFTCantidadEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTCantidadEntradaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTCantidadEntradaActionPerformed
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
@@ -470,36 +648,206 @@ public class PanelEntrada extends javax.swing.JFrame {
     private void bVolverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVolverActionPerformed
         // TODO add your handling code here:
         this.dispose();
-        PrincipalVista principalvista = new PrincipalVista();
-        principalvista.setVisible(true);
+        // Pasa el usuario de vuelta al menú principal
+        new PrincipalVista(this.usuarioActual).setVisible(true);
     }//GEN-LAST:event_bVolverActionPerformed
-
-    private void jCBUbicacionEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBUbicacionEntradaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCBUbicacionEntradaActionPerformed
 
     private void bRegistrarEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bRegistrarEntradaActionPerformed
         
     }//GEN-LAST:event_bRegistrarEntradaActionPerformed
 
-    private void jCBArticuloEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBArticuloEntradaActionPerformed
+    private void jCheckBoxDonadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBoxDonadoActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCBArticuloEntradaActionPerformed
+    }//GEN-LAST:event_jCheckBoxDonadoActionPerformed
 
     private void jFTEntregadoAActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTEntregadoAActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_jFTEntregadoAActionPerformed
 
-    private void jCheckBoxDonadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBoxDonadoActionPerformed
+    private void jCBArticuloEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBArticuloEntradaActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBoxDonadoActionPerformed
+    }//GEN-LAST:event_jCBArticuloEntradaActionPerformed
+
+    private void jFTCantidadEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTCantidadEntradaActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jFTCantidadEntradaActionPerformed
+
+    private void jCBUbicacionEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBUbicacionEntradaActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCBUbicacionEntradaActionPerformed
+
+    private void bConsultarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bConsultarActionPerformed
+        // TODO add your handling code here:
+        
+    try {
+        DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
+        model.setRowCount(0);
+
+        // 1. Obtener filtros
+        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+
+        // Extraer IDs
+        Integer idArticulo = (articulo != null) ? articulo.getIdArticulo() : null;
+        Integer idUbicacion = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
+        
+        // ⭐ IMPORTANTE: Si quieres ver TODO, los combos deben estar sin selección.
+        // Si siempre hay algo seleccionado, SIEMPRE filtrará por esa combinación exacta.
+        
+        // 2. Llamada al controlador (Esto imprimirá el DEBUG en consola gracias al DAO modificado)
+        List<Movimiento> lista = movimientoControl.buscarEntradas(idArticulo, idUbicacion);
+
+        if (lista.isEmpty()) {
+            // Mostramos mensaje detallado para ayudar a entender por qué no hay datos
+            String msg = "No se encontraron resultados.\n\nFiltros aplicados:\n";
+            msg += "Artículo: " + (articulo != null ? articulo.getNombre() : "TODOS") + "\n";
+            msg += "Ubicación: " + (ubicacion != null ? ubicacion.getNombre() : "TODAS") + "\n\n";
+            msg += "¿Estás seguro de que existe una ENTRADA exacta para esta combinación?";
+            
+            JOptionPane.showMessageDialog(this, msg, "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        for (Movimiento m : lista) {
+            Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+            
+            model.addRow(new Object[]{
+                m.getIdMovimiento(), 
+                m.getNombreArticulo(),
+                m.getCantidad(),
+                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
+                fechaVencimientoParaTabla, 
+                (m.getEntregado() != null ? m.getEntregado() : "-"),
+                m.getFechaHora()
+            });
+        }
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error al consultar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+    }//GEN-LAST:event_bConsultarActionPerformed
+
+    private void bModificarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bModificarActionPerformed
+        // TODO add your handling code here:
+        int fila = jTable1.getSelectedRow();
+    if (fila < 0) {
+        JOptionPane.showMessageDialog(this, "Seleccione un movimiento de entrada para modificar.");
+        return;
+    }
+
+    try {
+        // 1. Obtener ID del movimiento seleccionado
+        int idMovimiento = Integer.parseInt(jTable1.getModel().getValueAt(fila, 0).toString());
+        
+        // 2. RECOLECCIÓN Y VALIDACIÓN DE DATOS
+        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+        int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
+
+        if (articulo == null || ubicacion == null || cantidad <= 0) {
+            JOptionPane.showMessageDialog(this, "Artículo, Ubicación y Cantidad son obligatorios y deben ser válidos.",
+                                          "Validación", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Timestamp fechaVencimiento = null;
+        if (jCheckBoxVencimiento.isSelected()) {
+            Date selectedDate = jDateVencimiento.getDate();
+            if (selectedDate == null) {
+                 JOptionPane.showMessageDialog(this, "Selecciona una fecha de vencimiento válida.",
+                                              "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
+                 return;
+            }
+            fechaVencimiento = new Timestamp(selectedDate.getTime());
+        }
+
+        Double costo = null;
+        if (!jCheckBoxDonado.isSelected()) {
+            double costoVal = parseDoubleSafe(jTFCosto.getText());
+            costo = costoVal > 0 ? costoVal : null;
+        }
+        
+        // 3. LLAMADA AL CONTROLADOR
+        // ⭐ REQUIERE implementar boolean actualizarEntrada(...) en MovimientoControlador ⭐
+        boolean ok = movimientoControl.actualizarEntrada(
+            idMovimiento,
+            articulo.getIdArticulo(),
+            cantidad,
+            ubicacion.getId_ubicacion(),
+            jFTEntregadoA.getText().trim(),
+            jCheckBoxDonado.isSelected(),
+            costo,
+            fechaVencimiento
+        );
+
+        // 4. MANEJO DE RESPUESTA
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "Entrada modificada correctamente.");
+            cargarTablaMovimientos();
+        } else {
+            JOptionPane.showMessageDialog(this, "No se pudo modificar la entrada.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+    } catch (CapacidadInsuficienteException e) {
+        // Manejo de excepción de capacidad similar al método registrar
+        JOptionPane.showMessageDialog(this, 
+            String.format("La modificación excede la capacidad de la ubicación.\n" +
+                          "Restante: %.3f m³ | Requerido: %.3f m³", 
+                          e.getCapacidadRestante(), e.getEspacioRequerido()),
+            "Capacidad Insuficiente", JOptionPane.WARNING_MESSAGE);
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error al intentar modificar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+    }//GEN-LAST:event_bModificarActionPerformed
+
+    private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
+        // TODO add your handling code here:                                          
+    try {
+        // 1. Limpiar la selección de los ComboBoxes (para enviar null al DAO)
+        jCBArticuloEntrada.setSelectedItem(null); 
+        jCBUbicacionEntrada.setSelectedItem(null);
+
+        // 2. Llamar al método de consulta con filtros nulos (que es equivalente a listar todo)
+        List<Movimiento> lista = movimientoControl.buscarEntradas(null, null);
+
+        // 3. Limpiar la tabla y cargar la lista completa
+        DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
+        model.setRowCount(0);
+
+        for (Movimiento m : lista) {
+            // ... (Tu lógica para añadir filas a la tabla) ...
+            Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+            
+            model.addRow(new Object[]{
+                m.getIdMovimiento(), 
+                m.getNombreArticulo(),
+                m.getCantidad(),
+                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
+                fechaVencimientoParaTabla, 
+                (m.getEntregado() != null ? m.getEntregado() : "-"),
+                m.getFechaHora()
+            });
+        }
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error al cargar todos los movimientos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+    }//GEN-LAST:event_bVerTodoActionPerformed
 
     /**
      * @param args the command line arguments
      */
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton bConsultar;
+    private javax.swing.JButton bModificar;
     private javax.swing.JButton bRegistrarEntrada;
+    private javax.swing.JButton bVerTodo;
     private javax.swing.JButton bVolver;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton4;
@@ -523,6 +871,7 @@ public class PanelEntrada extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
+    private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextField jTFCosto;
     private javax.swing.JTable jTable1;

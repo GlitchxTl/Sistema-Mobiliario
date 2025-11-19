@@ -4,17 +4,19 @@
  */
 package Vista;
 
+import Modelo.Usuario;
 /**
  *
  * @author Dell
  */
 public class PanelReportes extends javax.swing.JFrame {
-
+    private Usuario usuarioActual;
     /**
      * Creates new form PanelArticulos
      */
-    public PanelReportes() {
+    public PanelReportes(Usuario usuario) {
         initComponents();
+        this.usuarioActual = usuario;
     }
 
     /**

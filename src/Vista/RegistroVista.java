@@ -111,7 +111,7 @@ public class RegistroVista extends javax.swing.JFrame {
             }
         });
 
-        cboxRol.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Usuario", "Escribiente", "Archivista", "Notario " }));
+        cboxRol.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Usuario", "Escribiente", "Notario " }));
         cboxRol.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 cboxRolActionPerformed(evt);

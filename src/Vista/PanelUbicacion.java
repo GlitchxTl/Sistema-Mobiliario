@@ -2,6 +2,7 @@ package Vista;
 
 import Modelo.Ubicacion;
 import Modelo.UbicacionDAO;
+import Modelo.Usuario;
 import Controlador.UbicacionControlador;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -11,50 +12,72 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * PanelUbicacion — UI con crear / modificar / eliminar.
- * Ahora trabaja directamente con UbicacionDAO (BD) y calcula volumen (m³) a partir de altura, anchura y profundidad.
- */
 public class PanelUbicacion extends javax.swing.JFrame {
 
     private final UbicacionDAO dao = new UbicacionDAO();
     private final UbicacionControlador controlador = new UbicacionControlador();
     private DefaultTableModel modeloTabla;
+    private Usuario usuarioActual; 
 
-    // Observers para notificar cambios de ubicaciones
     public interface UbicacionChangeListener {
         void onUbicacionesChanged();
     }
     private final List<UbicacionChangeListener> listeners = new ArrayList<>();
 
-    public PanelUbicacion() {
+    public PanelUbicacion(Usuario usuario) {
         initComponents();
+        this.usuarioActual = usuario;
+        
+        if (usuarioActual == null || !"Administrador".equalsIgnoreCase(usuarioActual.getRol())) {
+            // Ocultar bDeshabilitar si no es Administrador
+            bDeshabilitarUbicación.setVisible(false);
+            bCrearUbicacion.setVisible(false);
+            bModificarUbicacion.setVisible(false);
+            
+        }
         inicializar();
+        cargarTabla(); // Asegúrate de llamar a cargarTabla aquí
     }
-
+    
+    public PanelUbicacion() {
+        this(null);
+    }
+    
     private void inicializar() {
-        // configurar tabla
-        String[] headers = new String[] { "ID", "Nombre", "Capacidad (m³)", "Capacidad Restante (m³)", "Descripción" };
+        // ⭐ CAMBIO 1: Añadir la columna "Deshabilitado" ⭐
+        String[] headers = new String[] { 
+            "ID", "Nombre", "Capacidad (m³)", "Capacidad Restante (m³)", "Descripción", "Deshabilitado" 
+        };
+        
         modeloTabla = new DefaultTableModel(headers, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
+            // ⭐ CAMBIO 2: Definir la columna "Deshabilitado" como Boolean ⭐
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 5) {
+                    return Boolean.class; 
+                }
+                return super.getColumnClass(columnIndex);
+            }
         };
         jTablaUbicaciones.setModel(modeloTabla);
 
-        // ocultar columna ID visualmente
+        // Ocultar columna ID visualmente
         try {
             jTablaUbicaciones.getColumnModel().getColumn(0).setMinWidth(0);
             jTablaUbicaciones.getColumnModel().getColumn(0).setMaxWidth(0);
             jTablaUbicaciones.getColumnModel().getColumn(0).setWidth(0);
+            
+            jTablaUbicaciones.getColumnModel().getColumn(5).setPreferredWidth(100);
         } catch (Exception ignored) {}
 
-        // doble click selecciona fila y llena campos
+        // Doble click selecciona fila y llena campos (Llamando al nuevo método)
         jTablaUbicaciones.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int fila = jTablaUbicaciones.getSelectedRow();
                     if (fila >= 0) {
-                        jFTNombre.setText(String.valueOf(modeloTabla.getValueAt(fila, 1)));
-                        jFTDescripcion.setText(String.valueOf(modeloTabla.getValueAt(fila, 4)));
+                        cargarFormularioDesdeTabla(fila); // ⭐ Se usa el nuevo método
                     }
                 }
             }
@@ -62,24 +85,77 @@ public class PanelUbicacion extends javax.swing.JFrame {
 
         cargarTabla();
     }
+    
+private void cargarFormularioDesdeTabla(int fila) {
+    try {
+        // 1. Obtener el ID de la fila seleccionada (Columna 0, oculta)
+        Object idObj = modeloTabla.getValueAt(fila, 0);
+        if (idObj == null) return;
+        
+        int idUbicacion = Integer.parseInt(idObj.toString());
+
+        // 2. Usar el controlador para obtener el objeto Ubicacion completo desde la BD.
+        // REQUIERE que UbicacionControlador tenga: obtenerUbicacionPorId(int id)
+        Ubicacion ubicacion = controlador.obtenerPorId(idUbicacion);
+
+        if (ubicacion != null) {
+            // 3. Cargar datos básicos y la descripción
+            jFTNombre.setText(ubicacion.getNombre());
+            jFTDescripcion.setText(ubicacion.getDescripcion());
+            
+            // 4. Cargar las DIMENSIONES DEL OBJETO UBICACION (Altura, Anchura, Profundidad)
+            jFTAltura.setText(String.valueOf(ubicacion.getAltura()));
+            jFTAnchura.setText(String.valueOf(ubicacion.getAnchura())); 
+            jFTProfundidad.setText(String.valueOf(ubicacion.getProfundidad()));
+
+            // NOTA: Se omitieron jFTCapacidadTotal y jFTCapacidadRestante 
+            // porque indicaste que esos campos no existen en el formulario.
+
+        } else {
+             JOptionPane.showMessageDialog(this, "No se encontró la ubicación completa en la base de datos.", "Error de Datos", JOptionPane.WARNING_MESSAGE);
+        }
+        
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error al cargar datos del formulario: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+    
+
 
     private void cargarTabla() {
         try {
-            modeloTabla.setRowCount(0);
-            List<Ubicacion> lista = dao.listar();
-            DecimalFormat df = new DecimalFormat("#.###");
-            for (Ubicacion u : lista) {
-                modeloTabla.addRow(new Object[] {
-                        u.getId_ubicacion(),
-                        u.getNombre(),
-                        df.format(u.getCapacidad()),
-                        df.format(u.getCapacidadRestante()),
-                        u.getDescripcion()
+        modeloTabla.setRowCount(0);
+        
+        // ⭐ Corregido: Usar el método que existe en el controlador.
+        List<Ubicacion> lista = controlador.obtenerTodasUbicaciones();
+        
+        DecimalFormat df = new DecimalFormat("#.###");
+        
+        for (Ubicacion u : lista) {
+            modeloTabla.addRow(new Object[] {
+                // 1. ID: Usar el getter correcto de tu modelo
+                u.getId_ubicacion(), 
+                
+                // 2. Nombre
+                u.getNombre(),
+                
+                // 3. Capacidad Total: Usar el getter correcto de tu modelo
+                df.format(u.getCapacidad()), 
+                
+                // 4. Capacidad Restante: (Este es correcto)
+                df.format(u.getCapacidadRestante()),
+                
+                // 5. Descripción: (Este es correcto)
+                u.getDescripcion(),
+                
+                // 6. Deshabilitado: (Este es correcto y ya se agregó al modelo)
+                u.isDeshabilitado() 
                 });
             }
         } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error cargando ubicaciones: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        ex.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error cargando ubicaciones: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -113,17 +189,19 @@ public class PanelUbicacion extends javax.swing.JFrame {
         jFTDescripcion = new javax.swing.JFormattedTextField();
         jLabel17 = new javax.swing.JLabel();
         jFTProfundidad = new javax.swing.JFormattedTextField();
-        bEliminarUbicacion = new javax.swing.JButton();
         jFTNombre = new javax.swing.JFormattedTextField();
         jScrollPane1 = new javax.swing.JScrollPane();
         jTablaUbicaciones = new javax.swing.JTable();
-        bCrearUbicacion = new javax.swing.JButton();
-        bModificarUbicacion = new javax.swing.JButton();
         jLabel18 = new javax.swing.JLabel();
         jFTAltura = new javax.swing.JFormattedTextField();
         jLabel19 = new javax.swing.JLabel();
         jFTAnchura = new javax.swing.JFormattedTextField();
+        jPanel5 = new javax.swing.JPanel();
+        bCrearUbicacion = new javax.swing.JButton();
         bConsultarUbicacion = new javax.swing.JButton();
+        bVerTodo = new javax.swing.JButton();
+        bModificarUbicacion = new javax.swing.JButton();
+        bDeshabilitarUbicación = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -200,6 +278,7 @@ public class PanelUbicacion extends javax.swing.JFrame {
 
         jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 800, 110));
 
+        jPanel4.setBackground(new java.awt.Color(255, 255, 255));
         jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
@@ -232,17 +311,6 @@ public class PanelUbicacion extends javax.swing.JFrame {
         });
         jPanel4.add(jFTProfundidad, new org.netbeans.lib.awtextra.AbsoluteConstraints(220, 210, 140, 50));
 
-        bEliminarUbicacion.setBackground(new java.awt.Color(13, 51, 131));
-        bEliminarUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bEliminarUbicacion.setForeground(new java.awt.Color(255, 255, 255));
-        bEliminarUbicacion.setText("Eliminar");
-        bEliminarUbicacion.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bEliminarUbicacionActionPerformed(evt);
-            }
-        });
-        jPanel4.add(bEliminarUbicacion, new org.netbeans.lib.awtextra.AbsoluteConstraints(630, 340, 170, 40));
-
         jFTNombre.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jFTNombreActionPerformed(evt);
@@ -252,40 +320,18 @@ public class PanelUbicacion extends javax.swing.JFrame {
 
         jTablaUbicaciones.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null}
             },
             new String [] {
-                "Nombre", "Capacidad (m³):", "Capacidad Restante", "Descripción"
+                "Nombre", "Capacidad (m³):", "Capacidad Restante", "Descripción", "Deshabilitado"
             }
         ));
         jScrollPane1.setViewportView(jTablaUbicaciones);
 
-        jPanel4.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(370, 0, 430, 310));
-
-        bCrearUbicacion.setBackground(new java.awt.Color(13, 51, 131));
-        bCrearUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bCrearUbicacion.setForeground(new java.awt.Color(255, 255, 255));
-        bCrearUbicacion.setText("Crear");
-        bCrearUbicacion.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bCrearUbicacionActionPerformed(evt);
-            }
-        });
-        jPanel4.add(bCrearUbicacion, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 340, 170, 40));
-
-        bModificarUbicacion.setBackground(new java.awt.Color(13, 51, 131));
-        bModificarUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bModificarUbicacion.setForeground(new java.awt.Color(255, 255, 255));
-        bModificarUbicacion.setText("Modificar");
-        bModificarUbicacion.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bModificarUbicacionActionPerformed(evt);
-            }
-        });
-        jPanel4.add(bModificarUbicacion, new org.netbeans.lib.awtextra.AbsoluteConstraints(440, 340, 170, 40));
+        jPanel4.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(370, 0, 430, 330));
 
         jLabel18.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
@@ -311,6 +357,20 @@ public class PanelUbicacion extends javax.swing.JFrame {
         });
         jPanel4.add(jFTAnchura, new org.netbeans.lib.awtextra.AbsoluteConstraints(220, 150, 140, 50));
 
+        jPanel5.setBackground(new java.awt.Color(255, 255, 255));
+        jPanel5.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 40, 5));
+
+        bCrearUbicacion.setBackground(new java.awt.Color(13, 51, 131));
+        bCrearUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bCrearUbicacion.setForeground(new java.awt.Color(255, 255, 255));
+        bCrearUbicacion.setText("Registrar");
+        bCrearUbicacion.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bCrearUbicacionActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bCrearUbicacion);
+
         bConsultarUbicacion.setBackground(new java.awt.Color(13, 51, 131));
         bConsultarUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         bConsultarUbicacion.setForeground(new java.awt.Color(255, 255, 255));
@@ -320,7 +380,42 @@ public class PanelUbicacion extends javax.swing.JFrame {
                 bConsultarUbicacionActionPerformed(evt);
             }
         });
-        jPanel4.add(bConsultarUbicacion, new org.netbeans.lib.awtextra.AbsoluteConstraints(230, 340, 170, 40));
+        jPanel5.add(bConsultarUbicacion);
+
+        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
+        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
+        bVerTodo.setText("Ver Todo");
+        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bVerTodoActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bVerTodo);
+
+        bModificarUbicacion.setBackground(new java.awt.Color(13, 51, 131));
+        bModificarUbicacion.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bModificarUbicacion.setForeground(new java.awt.Color(255, 255, 255));
+        bModificarUbicacion.setText("Modificar");
+        bModificarUbicacion.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bModificarUbicacionActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bModificarUbicacion);
+
+        bDeshabilitarUbicación.setBackground(new java.awt.Color(13, 51, 131));
+        bDeshabilitarUbicación.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bDeshabilitarUbicación.setForeground(new java.awt.Color(255, 255, 255));
+        bDeshabilitarUbicación.setText("Deshilitar");
+        bDeshabilitarUbicación.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bDeshabilitarUbicaciónActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bDeshabilitarUbicación);
+
+        jPanel4.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 340, 800, 50));
 
         jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 110, 800, 390));
 
@@ -361,8 +456,8 @@ public class PanelUbicacion extends javax.swing.JFrame {
     private void jButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton6ActionPerformed
         // TODO add your handling code here:
         this.dispose();
-        PrincipalVista principalvista = new PrincipalVista();
-        principalvista.setVisible(true);
+        // Pasa el usuario de vuelta al menú principal
+        new PrincipalVista(this.usuarioActual).setVisible(true);
     }//GEN-LAST:event_jButton6ActionPerformed
 
     private void jFTNombreActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTNombreActionPerformed
@@ -439,35 +534,43 @@ public class PanelUbicacion extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_bCrearUbicacionActionPerformed
 
-    private void bEliminarUbicacionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bEliminarUbicacionActionPerformed
+    private void bDeshabilitarUbicaciónActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bDeshabilitarUbicaciónActionPerformed
     int fila = jTablaUbicaciones.getSelectedRow();
         if (fila < 0) {
-            JOptionPane.showMessageDialog(this, "Selecciona una fila para eliminar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Selecciona una ubicación para cambiar su estado.", "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        
+        // Obtener datos de la fila
         int id = parseIntSafe(String.valueOf(modeloTabla.getValueAt(fila, 0)));
         String nombre = String.valueOf(modeloTabla.getValueAt(fila, 1));
+        boolean estadoActual = (boolean) modeloTabla.getValueAt(fila, 5);
+        
+        // Invertir el estado
+        boolean nuevoEstado = !estadoActual;
+        String accion = nuevoEstado ? "DESHABILITAR" : "HABILITAR";
+        
         int confirm = JOptionPane.showConfirmDialog(this,
-                "¿Eliminar ubicación \"" + nombre + "\"?",
-                "Confirmar eliminación",
+                "¿Desea " + accion + " la ubicación \"" + nombre + "\"?",
+                "Confirmar Acción",
                 JOptionPane.YES_NO_OPTION);
+        
         if (confirm != JOptionPane.YES_OPTION) return;
 
         try {
-            boolean ok = dao.eliminar(id);
-            if (ok) {
-                JOptionPane.showMessageDialog(this, "Ubicación eliminada.", "OK", JOptionPane.INFORMATION_MESSAGE);
-                limpiarCampos();
-                cargarTabla();
-                notifyChangeListeners();
+            // Llamar al controlador para actualizar el estado
+            if (controlador.actualizarEstadoDeshabilitado(id, nuevoEstado)) {
+                // Actualizar la vista (modeloTabla) si la DB fue exitosa
+                modeloTabla.setValueAt(nuevoEstado, fila, 5);
+                JOptionPane.showMessageDialog(this, "Ubicación " + accion.toLowerCase() + " correctamente.", "OK", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, "No se pudo eliminar la ubicación.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "No se pudo " + accion.toLowerCase() + " la ubicación.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error al eliminar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error al " + accion.toLowerCase() + ": " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }//GEN-LAST:event_bEliminarUbicacionActionPerformed
+    }//GEN-LAST:event_bDeshabilitarUbicaciónActionPerformed
 
     private void jFTAlturaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTAlturaActionPerformed
         // TODO add your handling code here:
@@ -479,38 +582,78 @@ public class PanelUbicacion extends javax.swing.JFrame {
 
     private void bConsultarUbicacionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bConsultarUbicacionActionPerformed
         // TODO add your handling code here:
-         try {
-        String nombre = safeGet(jFTNombre);
-        modeloTabla.setRowCount(0);
+        try {
+    // 1. Obtener el nombre y limpiar la tabla
+    String nombre = safeGet(jFTNombre); // Asumo que safeGet() hace .getText().trim()
+    modeloTabla.setRowCount(0);
 
-        List<Ubicacion> lista;
-        if (nombre.isEmpty()) {
-            lista = controlador.listarTodas();
-        } else {
-            lista = controlador.buscarPorNombre(nombre);
-        }
+    List<Ubicacion> lista;
+    
+    // 2. Decidir si buscar o listar todo (Esto ya lo tenías bien)
+    if (nombre.isEmpty()) {
+        // Si el campo está vacío, "consultar" significa "mostrar todos"
+        lista = controlador.obtenerTodasUbicaciones(); // Llama al controlador para obtener todo
+    } else {
+        // Si hay texto, "consultar" significa "buscar"
+        lista = controlador.buscarPorNombre(nombre); // Llama al controlador para buscar
+    }
 
-        if (lista == null || lista.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No se encontraron ubicaciones.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-            return;
+    // 3. --- LÓGICA DE MENSAJE MEJORADA ---
+    if (lista == null || lista.isEmpty()) {
+        // Solo mostrar el popup si el usuario INTENTÓ buscar algo
+        if (!nombre.isEmpty()) { 
+            JOptionPane.showMessageDialog(this, 
+                "No se encontraron ubicaciones con ese nombre.", 
+                "Sin resultados", 
+                JOptionPane.INFORMATION_MESSAGE);
         }
+        // Si 'nombre' estaba vacío (quería ver todos) y la lista está vacía,
+        // simplemente se muestra la tabla vacía. No se necesita un popup.
+        return; 
+    }
 
-        DecimalFormat df = new DecimalFormat("#.###");
-        for (Ubicacion u : lista) {
-            modeloTabla.addRow(new Object[]{
-                u.getId_ubicacion(),
-                u.getNombre(),
-                df.format(u.getCapacidad()),
-                df.format(u.getCapacidadRestante()),
-                u.getDescripcion()
-            });
-        }
+    // 4. Si hay resultados, llenar la tabla
+    DecimalFormat df = new DecimalFormat("#.###"); // Es mejor crear esto fuera del bucle
+    for (Ubicacion u : lista) {
+        modeloTabla.addRow(new Object[]{
+            u.getId_ubicacion(),
+            u.getNombre(),
+            df.format(u.getCapacidad()),
+            df.format(u.getCapacidadRestante()),
+            u.getDescripcion()
+        });
+    }
+    
+} catch (Exception ex) {
+    ex.printStackTrace();
+    JOptionPane.showMessageDialog(this, "Error al consultar ubicaciones: " + ex.getMessage(),
+            "Error", JOptionPane.ERROR_MESSAGE);
+}
+    }//GEN-LAST:event_bConsultarUbicacionActionPerformed
+
+    private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
+        // TODO add your handling code here:
+        try {
+        // 1. Limpiar el campo de texto de filtro (jFTNombre)
+        // Se asume que jFTNombre es el campo usado para el filtro.
+        jFTNombre.setText(""); 
+        
+        // 2. Limpiar los campos del formulario de registro/modificación 
+        // y resetear el ID seleccionado si aplica (buena práctica).
+        limpiarCampos(); 
+        
+        // 3. Recargar la tabla con todos los registros (sin filtros).
+        // Se asume que 'cargarTabla()' llama a 'dao.listar()'
+        cargarTabla();
+        
+        // Opcional: Notificación al usuario
+        // JOptionPane.showMessageDialog(this, "Tabla de ubicaciones actualizada, filtros limpiados.", "Información", JOptionPane.INFORMATION_MESSAGE);
+
     } catch (Exception ex) {
         ex.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al consultar ubicaciones: " + ex.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(this, "Error al actualizar la tabla de ubicaciones: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
-    }//GEN-LAST:event_bConsultarUbicacionActionPerformed
+    }//GEN-LAST:event_bVerTodoActionPerformed
 
 private void limpiarCampos() {
         jFTNombre.setText("");
@@ -555,8 +698,9 @@ private void limpiarCampos() {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton bConsultarUbicacion;
     private javax.swing.JButton bCrearUbicacion;
-    private javax.swing.JButton bEliminarUbicacion;
+    private javax.swing.JButton bDeshabilitarUbicación;
     private javax.swing.JButton bModificarUbicacion;
+    private javax.swing.JButton bVerTodo;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton4;
     private javax.swing.JButton jButton5;
@@ -576,6 +720,7 @@ private void limpiarCampos() {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
+    private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTable jTablaUbicaciones;
     // End of variables declaration//GEN-END:variables

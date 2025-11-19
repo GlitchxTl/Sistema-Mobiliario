@@ -6,28 +6,39 @@ package Modelo;
 public class Ubicacion {
     private int id_ubicacion;
     private String nombre;
-    private double altura;      // metros
-    private double anchura;     // metros
-    private double profundidad; // metros
-    private double capacidad;   // metros cúbicos = altura * anchura * profundidad
+    private double altura;       // metros
+    private double anchura;      // metros
+    private double profundidad;  // metros
+    private double capacidad;    // metros cúbicos = altura * anchura * profundidad
     private double capacidadRestante; // calculada según artículos
     private String descripcion;
+    
+    // ⭐ CAMBIO 1: Nuevo atributo para soft-delete ⭐
+    private boolean deshabilitado; 
 
-    public Ubicacion() {}
+    public Ubicacion() {
+        this.deshabilitado = false; // Por defecto, habilitada
+    }
 
     public Ubicacion(int id_ubicacion, String nombre, double altura, double anchura, double profundidad, String descripcion) {
+        this(); // Llama al constructor vacío para inicializar deshabilitado = false
         this.id_ubicacion = id_ubicacion;
         this.nombre = nombre;
         this.altura = altura;
         this.anchura = anchura;
         this.profundidad = profundidad;
-        // La capacidad se calcula antes de guardar en el DAO
         this.capacidad = altura * anchura * profundidad;
         this.descripcion = descripcion;
     }
 
     public Ubicacion(String nombre, double altura, double anchura, double profundidad, String descripcion) {
         this(0, nombre, altura, anchura, profundidad, descripcion);
+    }
+    
+    // Constructor completo (usado por DAO al leer la DB)
+    public Ubicacion(int id_ubicacion, String nombre, double altura, double anchura, double profundidad, String descripcion, boolean deshabilitado) {
+        this(id_ubicacion, nombre, altura, anchura, profundidad, descripcion);
+        this.deshabilitado = deshabilitado;
     }
 
     // --- Getters y Setters ---
@@ -37,8 +48,6 @@ public class Ubicacion {
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
 
-    // NOTA: Se eliminaron las llamadas a recalcularCapacidad() en los setters. 
-    // Esto se maneja en el DAO antes de la persistencia.
     public double getAltura() { return altura; }
     public void setAltura(double altura) { this.altura = altura; } 
 
@@ -56,6 +65,10 @@ public class Ubicacion {
 
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    
+    // ⭐ CAMBIO 2: Getter y Setter para deshabilitado ⭐
+    public boolean isDeshabilitado() { return deshabilitado; }
+    public void setDeshabilitado(boolean deshabilitado) { this.deshabilitado = deshabilitado; }
 
     private void recalcularCapacidad() {
         this.capacidad = altura * anchura * profundidad;
@@ -63,7 +76,8 @@ public class Ubicacion {
 
     @Override
     public String toString() {
-        return nombre + " (" + String.format("%.2f", capacidad) + " m³)";
+        String estado = deshabilitado ? " (Deshabilitada)" : "";
+        return nombre + " (" + String.format("%.2f", capacidad) + " m³)" + estado;
     }
 }
 

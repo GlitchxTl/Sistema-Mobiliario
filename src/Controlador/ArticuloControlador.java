@@ -60,6 +60,17 @@ public class ArticuloControlador {
         }
     }
 
+    // ⭐ Nuevo método para Soft Delete ⭐
+    public boolean actualizarEstadoDeshabilitado(int idArticulo, boolean nuevoEstado) {
+        try {
+            return articuloDAO.actualizarEstado(idArticulo, nuevoEstado);
+        } catch (SQLException e) {
+            System.err.println("Error al actualizar el estado de deshabilitado: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public Articulo obtenerArticuloPorId(int id) {
         try {
             return articuloDAO.obtenerArticuloPorId(id);
@@ -87,9 +98,20 @@ public class ArticuloControlador {
             return new ArrayList<>();
         }
     }
+
+    public List<Articulo> buscarArticulosCombinado(String nombre, String codigo, String categoria) {
+        try {
+            String catFiltro = categoria;
+            if (categoria != null && (categoria.equalsIgnoreCase("Todas") || categoria.startsWith("Seleccione"))) {
+                catFiltro = ""; 
+            }
+            
+            return articuloDAO.buscarArticulosCombinado(nombre, codigo, catFiltro);
+        
+        } catch (SQLException e) {
+            System.err.println("Error al realizar la búsqueda combinada: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
 }
-
-
-
-
-

@@ -9,13 +9,19 @@ public class Articulo {
     private double anchura;            // metros
     private double profundidad;        // metros
     private double espacioUnitario;    // m³ (calculado)
+    
+    // ⭐ CAMBIO 1: Nuevo atributo para soft-delete ⭐
+    private boolean deshabilitado; 
 
     // Constructor vacío
-    public Articulo() {}
+    public Articulo() {
+        this.deshabilitado = false; // Por defecto, habilitado
+    }
 
     // Constructor completo
     public Articulo(String nombre, String codigoBienNacional, String categoria,
                     double altura, double anchura, double profundidad) {
+        this(); // Llama al constructor vacío para inicializar deshabilitado = false
         this.nombre = nombre;
         this.codigoBienNacional = codigoBienNacional;
         this.categoria = categoria;
@@ -24,7 +30,8 @@ public class Articulo {
         this.profundidad = profundidad;
         this.espacioUnitario = calcularEspacio();
     }
-
+    
+    // (Métodos calcularEspacio y recalcularEspacio sin cambios)
     public double calcularEspacio() {
         return altura * anchura * profundidad;
     }
@@ -57,6 +64,10 @@ public class Articulo {
 
     public double getEspacioUnitario() { return espacioUnitario; }
     public void setEspacioUnitario(double espacioUnitario) { this.espacioUnitario = espacioUnitario; }
+    
+    // ⭐ CAMBIO 2: Getter y Setter para deshabilitado ⭐
+    public boolean isDeshabilitado() { return deshabilitado; }
+    public void setDeshabilitado(boolean deshabilitado) { this.deshabilitado = deshabilitado; }
 
     @Override
     public String toString() {

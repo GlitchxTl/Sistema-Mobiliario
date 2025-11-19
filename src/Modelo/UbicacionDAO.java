@@ -13,8 +13,8 @@ public class UbicacionDAO {
     public boolean crear(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // CORRECCIÓN: Al crear, capacidad_restante debe ser igual a capacidad.
-        String sql = "INSERT INTO ubicacion (nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        // ⭐ CAMBIO 1: Añadir 'deshabilitado' al INSERT ⭐
+        String sql = "INSERT INTO ubicacion (nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -25,6 +25,7 @@ public class UbicacionDAO {
             ps.setDouble(5, u.getCapacidad());
             ps.setDouble(6, u.getCapacidad()); // Inicializar capacidad_restante
             ps.setString(7, u.getDescripcion());
+            ps.setBoolean(8, u.isDeshabilitado()); // ⭐ Nuevo parámetro ⭐
 
             int filas = ps.executeUpdate();
             if (filas > 0) {
@@ -40,13 +41,8 @@ public class UbicacionDAO {
     public boolean actualizar(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // CORRECCIÓN: Si cambian las dimensiones (y por ende la capacidad),
-        // capacidad_restante debería re-evaluarse. Aquí solo actualizamos
-        // los campos sin tocar capacidad_restante, confiando en que el
-        // trigger maneje movimientos. Si se cambia la capacidad, la lógica
-        // de capacidad_restante debe ser manejada manualmente o por un trigger de UPDATE.
-        // Si no hay trigger de UPDATE, el valor quedará desfasado si cambian dimensiones.
-        String sql = "UPDATE ubicacion SET nombre=?, altura=?, anchura=?, profundidad=?, capacidad=?, descripcion=? WHERE id_ubicacion=?";
+        // ⭐ CAMBIO 2: Añadir 'deshabilitado' al UPDATE ⭐
+        String sql = "UPDATE ubicacion SET nombre=?, altura=?, anchura=?, profundidad=?, capacidad=?, descripcion=?, deshabilitado=? WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
@@ -56,11 +52,13 @@ public class UbicacionDAO {
             ps.setDouble(4, u.getProfundidad());
             ps.setDouble(5, u.getCapacidad());
             ps.setString(6, u.getDescripcion());
-            ps.setInt(7, u.getId_ubicacion());
+            ps.setBoolean(7, u.isDeshabilitado()); // ⭐ Nuevo parámetro ⭐
+            ps.setInt(8, u.getId_ubicacion());
             return ps.executeUpdate() > 0;
         }
     }
 
+    // ELIMINACIÓN FÍSICA (Hard Delete): Se mantiene, pero se recomienda usar soft-delete.
     public boolean eliminar(int id_ubicacion) throws SQLException {
         String sql = "DELETE FROM ubicacion WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
@@ -69,27 +67,34 @@ public class UbicacionDAO {
             return ps.executeUpdate() > 0;
         }
     }
+    
+    // ⭐ CAMBIO 3: Método para Soft Delete/Habilitar ⭐
+    /**
+     * Actualiza el estado de deshabilitado de una ubicación.
+     */
+    public boolean actualizarEstado(int idUbicacion, boolean deshabilitar) throws SQLException {
+        String sql = "UPDATE ubicacion SET deshabilitado = ? WHERE id_ubicacion = ?";
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setBoolean(1, deshabilitar); 
+            ps.setInt(2, idUbicacion);
+            
+            return ps.executeUpdate() > 0;
+            
+        }
+    }
+    
+    // --- Mapeo y Listado ---
 
     public Ubicacion obtenerPorId(int id_ubicacion) throws SQLException {
-        String sql = "SELECT * FROM ubicacion WHERE id_ubicacion=?";
+        // ⭐ CAMBIO 4: Seleccionar 'deshabilitado' ⭐
+        String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id_ubicacion);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Ubicacion u = new Ubicacion(
-                        rs.getInt("id_ubicacion"),
-                        rs.getString("nombre"),
-                        rs.getDouble("altura"),
-                        rs.getDouble("anchura"),
-                        rs.getDouble("profundidad"),
-                        rs.getString("descripcion")
-                    );
-                    u.setCapacidad(rs.getDouble("capacidad"));
-                    // CORRECCIÓN: Leer capacidad restante de la DB, no calcularla.
-                    u.setCapacidadRestante(rs.getDouble("capacidad_restante"));
-                    return u;
-                }
+                if (rs.next()) return mapearUbicacion(rs);
             }
         }
         return null;
@@ -97,31 +102,74 @@ public class UbicacionDAO {
 
     public List<Ubicacion> listar() throws SQLException {
         List<Ubicacion> res = new ArrayList<>();
-        String sql = "SELECT * FROM ubicacion ORDER BY nombre";
+        // ⭐ CAMBIO 5: Seleccionar 'deshabilitado' ⭐
+        String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion ORDER BY nombre";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                Ubicacion u = new Ubicacion(
-                    rs.getInt("id_ubicacion"),
-                    rs.getString("nombre"),
-                    rs.getDouble("altura"),
-                    rs.getDouble("anchura"),
-                    rs.getDouble("profundidad"),
-                    rs.getString("descripcion")
-                );
-                u.setCapacidad(rs.getDouble("capacidad"));
-                // CORRECCIÓN: Leer capacidad restante de la DB, no calcularla.
-                u.setCapacidadRestante(rs.getDouble("capacidad_restante"));
-                res.add(u);
+                res.add(mapearUbicacion(rs));
+            }
+        }
+        return res;
+    }
+    
+    public List<Ubicacion> buscar(String nombre) throws SQLException {
+        List<Ubicacion> lista = new ArrayList<>();
+        // ⭐ CAMBIO 6: Seleccionar 'deshabilitado' ⭐
+        String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE nombre LIKE ?";
+
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, "%" + nombre + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                   lista.add(mapearUbicacion(rs));
+                }
+            }
+        }
+        return lista;
+    }
+    
+    public List<Ubicacion> listarConEspacioSuficiente(double espacioRequerido, int idUbicacionAExcluir) throws SQLException {
+        List<Ubicacion> res = new ArrayList<>();
+        // ⭐ CAMBIO 7: Seleccionar 'deshabilitado' y excluir deshabilitadas del resultado (solo mostrará ubicaciones HABILITADAS) ⭐
+        String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE capacidad_restante >= ? AND id_ubicacion != ? AND deshabilitado = FALSE ORDER BY nombre";
+        
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setDouble(1, espacioRequerido);
+            ps.setInt(2, idUbicacionAExcluir);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    res.add(mapearUbicacion(rs));
+                }
             }
         }
         return res;
     }
 
-    /**
-     * Obtiene el ID de una ubicación a partir de su nombre.
-     */
+    // --- Métodos Auxiliares ---
+
+    private Ubicacion mapearUbicacion(ResultSet rs) throws SQLException {
+        Ubicacion u = new Ubicacion(
+            rs.getInt("id_ubicacion"),
+            rs.getString("nombre"),
+            rs.getDouble("altura"),
+            rs.getDouble("anchura"),
+            rs.getDouble("profundidad"),
+            rs.getString("descripcion"),
+            rs.getBoolean("deshabilitado") // ⭐ CAMBIO 8: Leer el nuevo campo ⭐
+        );
+        u.setCapacidad(rs.getDouble("capacidad"));
+        u.setCapacidadRestante(rs.getDouble("capacidad_restante"));
+        return u;
+    }
+
+    // ... (Métodos obtenerIdPorNombre y crearSiNoExisteYObtenerId sin cambios funcionales) ...
+
     public Integer obtenerIdPorNombre(String nombre) throws SQLException {
         String sql = "SELECT id_ubicacion FROM ubicacion WHERE nombre = ?";
         try (Connection con = ConexionBD.conectar();
@@ -134,9 +182,6 @@ public class UbicacionDAO {
         return null;
     }
 
-    /**
-     * Crea la ubicación si no existe y devuelve su ID.
-     */
     public Integer crearSiNoExisteYObtenerId(String nombre) throws SQLException {
         Integer id = obtenerIdPorNombre(nombre);
         if (id != null) return id;
@@ -149,31 +194,5 @@ public class UbicacionDAO {
         nueva.setDescripcion("Creada automáticamente");
         if (crear(nueva)) return nueva.getId_ubicacion();
         return null;
-    }
-
-    // ELIMINADO: Este método ya no es necesario, el trigger se encarga de esto.
-    // private double calcularCapacidadRestante(int idUbicacion, double capacidadTotal) {...}
-    
-    public List<Ubicacion> buscar(String nombre) throws SQLException {
-        List<Ubicacion> lista = new ArrayList<>();
-        String sql = "SELECT * FROM ubicacion WHERE nombre LIKE ?";
-
-        try (Connection con = ConexionBD.conectar();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, "%" + nombre + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Ubicacion u = new Ubicacion();
-                    u.setId_ubicacion(rs.getInt("id_ubicacion"));
-                    u.setNombre(rs.getString("nombre"));
-                    u.setCapacidad(rs.getDouble("capacidad"));
-                    // CORRECCIÓN: Leer capacidad restante de la DB, no calcularla.
-                    u.setCapacidadRestante(rs.getDouble("capacidad_restante"));
-                    u.setDescripcion(rs.getString("descripcion"));
-                    lista.add(u);
-                }
-            }
-        }
-        return lista;
     }
 }

@@ -22,12 +22,12 @@ import javax.swing.BorderFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PrincipalVista extends javax.swing.JFrame {
-    private Usuario usuarioActual;
+    private Usuario usuarioActual; 
     private boolean cerrandoPorBoton = false;
 
     public PrincipalVista(Usuario usuario) {
         initComponents();
-        this.usuarioActual = usuario;
+        this.usuarioActual = usuario; 
         setLocationRelativeTo(null);
         actualizarBienvenida();
         configurarMenuMovimientos();
@@ -77,7 +77,8 @@ private void configurarMenuMovimientos() {
     btnEntrada.setFocusable(false);
     btnEntrada.addActionListener(e -> {
         menuWindow.setVisible(false);
-        new PanelEntrada().setVisible(true);
+        // ⭐ ENVÍA EL USUARIO ⭐
+        new PanelEntrada(this.usuarioActual).setVisible(true);
         this.dispose();
     });
     menuPanel.add(btnEntrada);
@@ -92,7 +93,8 @@ private void configurarMenuMovimientos() {
     btnTraslado.setFocusable(false);
     btnTraslado.addActionListener(e -> {
         menuWindow.setVisible(false);
-        new PanelTraslado().setVisible(true);
+        // ⭐ ENVÍA EL USUARIO ⭐
+        new PanelTraslado(this.usuarioActual).setVisible(true);
         this.dispose();
     });
     menuPanel.add(btnTraslado);
@@ -107,7 +109,8 @@ private void configurarMenuMovimientos() {
     btnSalida.setFocusable(false);
     btnSalida.addActionListener(e -> {
         menuWindow.setVisible(false);
-        new PanelSalida().setVisible(true);
+        // ⭐ ENVÍA EL USUARIO ⭐
+        new PanelSalida(this.usuarioActual).setVisible(true);
         this.dispose();
     });
     menuPanel.add(btnSalida);
@@ -173,6 +176,8 @@ private void configurarMenuMovimientos() {
         bGMovimientos = new javax.swing.JButton();
         jPanel3 = new javax.swing.JPanel();
         btnCerrarSesion = new javax.swing.JButton();
+        btnGestionUsuarios = new javax.swing.JButton();
+        btnCerrarSesion2 = new javax.swing.JButton();
         lblBienvenida = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -258,29 +263,55 @@ private void configurarMenuMovimientos() {
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 560, Short.MAX_VALUE)
+            .addGap(0, 580, Short.MAX_VALUE)
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGap(0, 140, Short.MAX_VALUE)
         );
 
-        panelPrincipal.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 60, 560, 140));
+        panelPrincipal.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 60, 580, 140));
 
         btnCerrarSesion.setBackground(new java.awt.Color(0, 102, 204));
+        btnCerrarSesion.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         btnCerrarSesion.setForeground(new java.awt.Color(255, 255, 255));
         btnCerrarSesion.setText("Cerrar Sesión");
+        btnCerrarSesion.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
         btnCerrarSesion.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnCerrarSesionActionPerformed(evt);
             }
         });
-        panelPrincipal.add(btnCerrarSesion, new org.netbeans.lib.awtextra.AbsoluteConstraints(620, 0, 190, 60));
+        panelPrincipal.add(btnCerrarSesion, new org.netbeans.lib.awtextra.AbsoluteConstraints(640, 0, 190, 60));
+
+        btnGestionUsuarios.setBackground(new java.awt.Color(0, 102, 204));
+        btnGestionUsuarios.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
+        btnGestionUsuarios.setForeground(new java.awt.Color(255, 255, 255));
+        btnGestionUsuarios.setText("Gestión Usuarios");
+        btnGestionUsuarios.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
+        btnGestionUsuarios.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnGestionUsuariosActionPerformed(evt);
+            }
+        });
+        panelPrincipal.add(btnGestionUsuarios, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 0, 180, 60));
+
+        btnCerrarSesion2.setBackground(new java.awt.Color(13, 51, 131));
+        btnCerrarSesion2.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
+        btnCerrarSesion2.setForeground(new java.awt.Color(255, 255, 255));
+        btnCerrarSesion2.setText("Configuración");
+        btnCerrarSesion2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
+        btnCerrarSesion2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnCerrarSesion2ActionPerformed(evt);
+            }
+        });
+        panelPrincipal.add(btnCerrarSesion2, new org.netbeans.lib.awtextra.AbsoluteConstraints(430, 0, 210, 60));
 
         lblBienvenida.setBackground(new java.awt.Color(255, 255, 255));
         lblBienvenida.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
         lblBienvenida.setText("¡Bienvenido!");
-        panelPrincipal.add(lblBienvenida, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 200, 560, 60));
+        panelPrincipal.add(lblBienvenida, new org.netbeans.lib.awtextra.AbsoluteConstraints(252, 200, 580, 60));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -288,8 +319,7 @@ private void configurarMenuMovimientos() {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(panelPrincipal, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(17, Short.MAX_VALUE))
+                .addComponent(panelPrincipal, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -302,16 +332,15 @@ private void configurarMenuMovimientos() {
     }// </editor-fold>//GEN-END:initComponents
 
     private void bReportesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bReportesActionPerformed
-        PanelReportes panelReportes = new PanelReportes();
+        PanelReportes panelReportes = new PanelReportes(this.usuarioActual);
         panelReportes.setVisible(true);
         this.dispose();
     }//GEN-LAST:event_bReportesActionPerformed
 
     private void bArticulosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bArticulosActionPerformed
         // TODO add your handling code here:
-        PanelArticulos panelArticulos = new PanelArticulos();
-        panelArticulos.setVisible(true);
-        this.dispose(); // Cierra la vista actual
+        new PanelArticulos(this.usuarioActual).setVisible(true);
+        this.dispose();// Cierra la vista actual
     }//GEN-LAST:event_bArticulosActionPerformed
 
     private void btnCerrarSesionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesionActionPerformed
@@ -331,20 +360,27 @@ private void configurarMenuMovimientos() {
     }//GEN-LAST:event_btnCerrarSesionActionPerformed
 
     private void bEstadísticaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bEstadísticaActionPerformed
-        PanelEstadistica panelEstadistica = new PanelEstadistica();
+        PanelEstadistica panelEstadistica = new PanelEstadistica(this.usuarioActual);
         panelEstadistica.setVisible(true);
         this.dispose();
     }//GEN-LAST:event_bEstadísticaActionPerformed
 
     private void bUbicacion1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bUbicacion1ActionPerformed
-        PanelUbicacion panelUbicacion = new PanelUbicacion();
-        panelUbicacion.setVisible(true);
+        new PanelUbicacion(this.usuarioActual).setVisible(true);
         this.dispose();
     }//GEN-LAST:event_bUbicacion1ActionPerformed
 
     private void bGMovimientosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bGMovimientosActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_bGMovimientosActionPerformed
+
+    private void btnGestionUsuariosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGestionUsuariosActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnGestionUsuariosActionPerformed
+
+    private void btnCerrarSesion2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesion2ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnCerrarSesion2ActionPerformed
 
     /**
      * @param args the command line arguments
@@ -358,6 +394,8 @@ private void configurarMenuMovimientos() {
     private javax.swing.JButton bReportes;
     private javax.swing.JButton bUbicacion1;
     private javax.swing.JButton btnCerrarSesion;
+    private javax.swing.JButton btnCerrarSesion2;
+    private javax.swing.JButton btnGestionUsuarios;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;

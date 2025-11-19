@@ -4,17 +4,20 @@
  */
 package Vista;
 
+import Modelo.Usuario;
+
 /**
  *
  * @author Dell
  */
 public class PanelEstadistica extends javax.swing.JFrame {
-
+    private Usuario usuarioActual;
     /**
      * Creates new form PanelEstadistica
      */
-    public PanelEstadistica() {
+    public PanelEstadistica(Usuario usuario) {
         initComponents();
+        this.usuarioActual = usuario;
     }
 
     /**
