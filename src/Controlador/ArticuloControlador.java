@@ -10,9 +10,11 @@ import java.util.List;
 public class ArticuloControlador {
     private final ArticuloDAO articuloDAO = new ArticuloDAO();
 
-    public boolean crearArticulo(Articulo articulo) {
+    // MODIFICADO: Se añade int idUsuario
+    public boolean crearArticulo(Articulo articulo, int idUsuario) {
         try {
-            return articuloDAO.crearArticulo(articulo);
+            // Pasar idUsuario al DAO
+            return articuloDAO.crearArticulo(articulo, idUsuario);
         } catch (SQLException e) {
             System.err.println("Error al crear artículo: " + e.getMessage());
             e.printStackTrace();
@@ -20,7 +22,7 @@ public class ArticuloControlador {
         }
     }
 
-    public List<Articulo> obtenerTodosArticulosc() {
+    public List<Articulo> obtenerTodosArticulos() {
         try {
             return articuloDAO.listarArticulos();
         } catch (SQLException e) {
@@ -30,9 +32,11 @@ public class ArticuloControlador {
         }
     }
 
-    public boolean actualizarArticulo(Articulo articulo) {
+    // MODIFICADO: Se añade int idUsuario
+    public boolean actualizarArticulo(Articulo articulo, int idUsuario) {
         try {
-            return articuloDAO.actualizarArticulo(articulo);
+            // Pasar idUsuario al DAO
+            return articuloDAO.actualizarArticulo(articulo, idUsuario);
         } catch (SQLException e) {
             System.err.println("Error al actualizar artículo: " + e.getMessage());
             e.printStackTrace();
@@ -60,7 +64,7 @@ public class ArticuloControlador {
         }
     }
 
-    // ⭐ Nuevo método para Soft Delete ⭐
+    // Nuevo método para Soft Delete
     public boolean actualizarEstadoDeshabilitado(int idArticulo, boolean nuevoEstado) {
         try {
             return articuloDAO.actualizarEstado(idArticulo, nuevoEstado);
@@ -107,7 +111,7 @@ public class ArticuloControlador {
             }
             
             return articuloDAO.buscarArticulosCombinado(nombre, codigo, catFiltro);
-        
+            
         } catch (SQLException e) {
             System.err.println("Error al realizar la búsqueda combinada: " + e.getMessage());
             e.printStackTrace();

@@ -24,6 +24,7 @@ public class RegistroVista extends javax.swing.JFrame {
         this.authControlador = authControlador;
         initRolMap();
         initComponents();
+        this.setResizable(false);
         setLocationRelativeTo(null);
     }
 

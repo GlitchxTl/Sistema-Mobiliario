@@ -91,7 +91,14 @@ public class Movimiento {
                 ", fecha=" + fechaHora +
                 '}';
     }
-}
+    
+    public static String capitalizar (String texto) {
+    if (texto == null || texto.isBlank()) return texto;
+    texto = texto.trim();
+    return texto.substring(0, 1).toUpperCase() + texto.substring(1).toLowerCase();
+        }
+
+    }
 
 
 

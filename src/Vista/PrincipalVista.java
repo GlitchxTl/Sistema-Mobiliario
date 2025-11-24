@@ -24,25 +24,48 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PrincipalVista extends javax.swing.JFrame {
     private Usuario usuarioActual; 
     private boolean cerrandoPorBoton = false;
+    
 
     public PrincipalVista(Usuario usuario) {
         initComponents();
+        this.setResizable(false);
         this.usuarioActual = usuario; 
         setLocationRelativeTo(null);
         actualizarBienvenida();
         configurarMenuMovimientos();
+        ajustarLogo();
     }
 
     public PrincipalVista() {
         initComponents();
+        this.setResizable(false);
         setLocationRelativeTo(null);
         configurarMenuMovimientos();
+        ajustarLogo();
     }
 
     private void actualizarBienvenida() {
-        lblBienvenida.setText("¡Bienvenido!, " + (usuarioActual != null ? usuarioActual.getNombreUsuario() : ""));
+        lblBienvenida.setText("¡Bienvenido a NotMobi!, " + (usuarioActual != null ? usuarioActual.getNombreUsuario() : ""));
     }
 
+    private void ajustarLogo() {
+    // Ruta de la imagen
+    String ruta = "src/Images/LogoNotMobi.png";
+
+    ImageIcon iconoOriginal = new ImageIcon(ruta);
+    Image imagen = iconoOriginal.getImage();
+
+    // Escalar al tamaño actual del JLabel
+    Image imagenEscalada = imagen.getScaledInstance(
+            iLogo.getWidth(),
+            iLogo.getHeight(),
+            Image.SCALE_SMOOTH
+    );
+
+    iLogo.setIcon(new ImageIcon(imagenEscalada));
+}
+    
+    
 private void configurarMenuMovimientos() {
     
     // ==========================================================
@@ -172,13 +195,13 @@ private void configurarMenuMovimientos() {
         bArticulos = new javax.swing.JButton();
         bEstadística = new javax.swing.JButton();
         bUbicacion1 = new javax.swing.JButton();
-        bReportes = new javax.swing.JButton();
+        bAuditoría = new javax.swing.JButton();
         bGMovimientos = new javax.swing.JButton();
         jPanel3 = new javax.swing.JPanel();
-        btnCerrarSesion = new javax.swing.JButton();
-        btnGestionUsuarios = new javax.swing.JButton();
-        btnCerrarSesion2 = new javax.swing.JButton();
         lblBienvenida = new javax.swing.JLabel();
+        iLogo = new javax.swing.JLabel();
+        btnCerrarSesion = new javax.swing.JButton();
+        jLabel2 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -231,17 +254,17 @@ private void configurarMenuMovimientos() {
         });
         jPanel2.add(bUbicacion1, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 230, 250, 70));
 
-        bReportes.setBackground(new java.awt.Color(13, 51, 131));
-        bReportes.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bReportes.setForeground(new java.awt.Color(255, 255, 255));
-        bReportes.setText("Reportes");
-        bReportes.setBorder(null);
-        bReportes.addActionListener(new java.awt.event.ActionListener() {
+        bAuditoría.setBackground(new java.awt.Color(13, 51, 131));
+        bAuditoría.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        bAuditoría.setForeground(new java.awt.Color(255, 255, 255));
+        bAuditoría.setText("Auditoría");
+        bAuditoría.setBorder(null);
+        bAuditoría.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bReportesActionPerformed(evt);
+                bAuditoríaActionPerformed(evt);
             }
         });
-        jPanel2.add(bReportes, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 370, 250, 70));
+        jPanel2.add(bAuditoría, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 370, 250, 70));
 
         bGMovimientos.setBackground(new java.awt.Color(0, 102, 204));
         bGMovimientos.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
@@ -259,15 +282,30 @@ private void configurarMenuMovimientos() {
 
         jPanel3.setBackground(new java.awt.Color(0, 102, 204));
 
+        lblBienvenida.setBackground(new java.awt.Color(255, 255, 255));
+        lblBienvenida.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
+        lblBienvenida.setForeground(new java.awt.Color(255, 255, 255));
+        lblBienvenida.setText("¡Bienvenido!");
+
+        iLogo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/LogoNotMobi.png"))); // NOI18N
+
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 580, Short.MAX_VALUE)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addComponent(lblBienvenida, javax.swing.GroupLayout.PREFERRED_SIZE, 401, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(iLogo, javax.swing.GroupLayout.PREFERRED_SIZE, 171, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(14, 14, 14))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 140, Short.MAX_VALUE)
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addGap(28, 28, 28)
+                .addComponent(lblBienvenida, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(52, Short.MAX_VALUE))
+            .addComponent(iLogo, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
         );
 
         panelPrincipal.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 60, 580, 140));
@@ -282,36 +320,11 @@ private void configurarMenuMovimientos() {
                 btnCerrarSesionActionPerformed(evt);
             }
         });
-        panelPrincipal.add(btnCerrarSesion, new org.netbeans.lib.awtextra.AbsoluteConstraints(640, 0, 190, 60));
+        panelPrincipal.add(btnCerrarSesion, new org.netbeans.lib.awtextra.AbsoluteConstraints(248, 0, 580, 60));
 
-        btnGestionUsuarios.setBackground(new java.awt.Color(0, 102, 204));
-        btnGestionUsuarios.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        btnGestionUsuarios.setForeground(new java.awt.Color(255, 255, 255));
-        btnGestionUsuarios.setText("Gestión Usuarios");
-        btnGestionUsuarios.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
-        btnGestionUsuarios.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnGestionUsuariosActionPerformed(evt);
-            }
-        });
-        panelPrincipal.add(btnGestionUsuarios, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 0, 180, 60));
-
-        btnCerrarSesion2.setBackground(new java.awt.Color(13, 51, 131));
-        btnCerrarSesion2.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        btnCerrarSesion2.setForeground(new java.awt.Color(255, 255, 255));
-        btnCerrarSesion2.setText("Configuración");
-        btnCerrarSesion2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
-        btnCerrarSesion2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnCerrarSesion2ActionPerformed(evt);
-            }
-        });
-        panelPrincipal.add(btnCerrarSesion2, new org.netbeans.lib.awtextra.AbsoluteConstraints(430, 0, 210, 60));
-
-        lblBienvenida.setBackground(new java.awt.Color(255, 255, 255));
-        lblBienvenida.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        lblBienvenida.setText("¡Bienvenido!");
-        panelPrincipal.add(lblBienvenida, new org.netbeans.lib.awtextra.AbsoluteConstraints(252, 200, 580, 60));
+        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/sistema-vivant-muebles-sygma-003.jpg"))); // NOI18N
+        jLabel2.setText("jLabel2");
+        panelPrincipal.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(240, 200, 590, 300));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -331,11 +344,11 @@ private void configurarMenuMovimientos() {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void bReportesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bReportesActionPerformed
-        PanelReportes panelReportes = new PanelReportes(this.usuarioActual);
-        panelReportes.setVisible(true);
+    private void bAuditoríaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bAuditoríaActionPerformed
+        VistaLogAuditoria panelAuditoria = new VistaLogAuditoria(this.usuarioActual);
+        panelAuditoria.setVisible(true);
         this.dispose();
-    }//GEN-LAST:event_bReportesActionPerformed
+    }//GEN-LAST:event_bAuditoríaActionPerformed
 
     private void bArticulosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bArticulosActionPerformed
         // TODO add your handling code here:
@@ -343,23 +356,11 @@ private void configurarMenuMovimientos() {
         this.dispose();// Cierra la vista actual
     }//GEN-LAST:event_bArticulosActionPerformed
 
-    private void btnCerrarSesionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesionActionPerformed
-        // TODO add your handling code here:
-        int confirm = JOptionPane.showConfirmDialog(
-            this,
-            "¿Está seguro que desea cerrar sesión?",
-            "Confirmar cierre de sesión",
-            JOptionPane.YES_NO_OPTION
-        );
-        
-        if(confirm == JOptionPane.YES_OPTION) {
-            this.dispose();
-            new LoginVista().setVisible(true);
-        }
-        
-    }//GEN-LAST:event_btnCerrarSesionActionPerformed
-
     private void bEstadísticaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bEstadísticaActionPerformed
+        //EstadisticasArticulosStock panelArticulosStock = new EstadisticasArticulosStock(this.usuarioActual);
+        //panelArticulosStock.setVisible(true);
+        //this.dispose();
+        
         PanelEstadistica panelEstadistica = new PanelEstadistica(this.usuarioActual);
         panelEstadistica.setVisible(true);
         this.dispose();
@@ -374,13 +375,21 @@ private void configurarMenuMovimientos() {
         // TODO add your handling code here:
     }//GEN-LAST:event_bGMovimientosActionPerformed
 
-    private void btnGestionUsuariosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGestionUsuariosActionPerformed
+    private void btnCerrarSesionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesionActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_btnGestionUsuariosActionPerformed
+        int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "¿Está seguro que desea cerrar sesión?",
+            "Confirmar cierre de sesión",
+            JOptionPane.YES_NO_OPTION
+        );
 
-    private void btnCerrarSesion2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesion2ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_btnCerrarSesion2ActionPerformed
+        if(confirm == JOptionPane.YES_OPTION) {
+            this.dispose();
+            new LoginVista().setVisible(true);
+        }
+
+    }//GEN-LAST:event_btnCerrarSesionActionPerformed
 
     /**
      * @param args the command line arguments
@@ -389,14 +398,14 @@ private void configurarMenuMovimientos() {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton bArticulos;
+    private javax.swing.JButton bAuditoría;
     private javax.swing.JButton bEstadística;
     private javax.swing.JButton bGMovimientos;
-    private javax.swing.JButton bReportes;
     private javax.swing.JButton bUbicacion1;
     private javax.swing.JButton btnCerrarSesion;
-    private javax.swing.JButton btnCerrarSesion2;
-    private javax.swing.JButton btnGestionUsuarios;
+    private javax.swing.JLabel iLogo;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JSeparator jSeparator1;

@@ -27,6 +27,7 @@ public class PanelUbicacion extends javax.swing.JFrame {
     public PanelUbicacion(Usuario usuario) {
         initComponents();
         this.usuarioActual = usuario;
+        this.setResizable(false);
         
         if (usuarioActual == null || !"Administrador".equalsIgnoreCase(usuarioActual.getRol())) {
             // Ocultar bDeshabilitar si no es Administrador
@@ -326,7 +327,7 @@ private void cargarFormularioDesdeTabla(int fila) {
                 {null, null, null, null, null}
             },
             new String [] {
-                "Nombre", "Capacidad (m³):", "Capacidad Restante", "Descripción", "Deshabilitado"
+                "Nombre", "Capacidad ", "C. Restante", "Descripción", "Deshabilitado"
             }
         ));
         jScrollPane1.setViewportView(jTablaUbicaciones);
@@ -407,7 +408,7 @@ private void cargarFormularioDesdeTabla(int fila) {
         bDeshabilitarUbicación.setBackground(new java.awt.Color(13, 51, 131));
         bDeshabilitarUbicación.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         bDeshabilitarUbicación.setForeground(new java.awt.Color(255, 255, 255));
-        bDeshabilitarUbicación.setText("Deshilitar");
+        bDeshabilitarUbicación.setText("Deshabilitar");
         bDeshabilitarUbicación.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 bDeshabilitarUbicaciónActionPerformed(evt);

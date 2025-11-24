@@ -27,6 +27,7 @@ public class PanelTraslado extends javax.swing.JFrame {
     // Constructor que recibe el usuario
     public PanelTraslado(Usuario usuario) {
         initComponents();
+        this.setResizable(false);
         this.usuarioActual = usuario; 
         
         // ⭐ NUEVA LÓGICA: Ocultar bModificar
@@ -64,7 +65,7 @@ public class PanelTraslado extends javax.swing.JFrame {
         try {
             // Artículos
             DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulosc();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
             for (Articulo a : articulos) {
                 modeloArticulos.addElement(a);
             }
@@ -333,7 +334,7 @@ public class PanelTraslado extends javax.swing.JFrame {
         jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
         jLabel1.setForeground(new java.awt.Color(255, 255, 255));
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Traslado");
+        jLabel1.setText("Traslado de Bienes Mobiliarios");
         jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(6, 0, 790, 80));
 
         jButton1.setBackground(new java.awt.Color(13, 51, 131));

@@ -7,21 +7,27 @@ import java.util.List;
 
 public class ArticuloDAO {
 
-    public boolean crearArticulo(Articulo articulo) throws SQLException {
-        String sql = "INSERT INTO articulo (nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    // MODIFICADO: Se añade int idUsuario
+    public boolean crearArticulo(Articulo articulo, int idUsuario) throws SQLException {
+        // Se añade 'detalles' y se ajustan los índices
+        String sql = "INSERT INTO articulo (nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado, id_usuario_creacion) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            ps.setString(1, articulo.getNombre());
+            ps.setString(1, util.util.capitalizar(articulo.getNombre()));
             ps.setString(2, articulo.getCodigoBienNacional());
             ps.setString(3, articulo.getCategoria());
-            ps.setDouble(4, articulo.getAltura());
-            ps.setDouble(5, articulo.getAnchura());
-            ps.setDouble(6, articulo.getProfundidad());
-            ps.setDouble(7, articulo.getEspacioUnitario());
-            ps.setBoolean(8, articulo.isDeshabilitado());
+            // NUEVO: Detalles
+            ps.setString(4, articulo.getDetalles()); 
+            ps.setDouble(5, articulo.getAltura());
+            ps.setDouble(6, articulo.getAnchura());
+            ps.setDouble(7, articulo.getProfundidad());
+            ps.setDouble(8, articulo.getEspacioUnitario());
+            ps.setBoolean(9, articulo.isDeshabilitado());
+            // idUsuario ahora es el índice 10
+            ps.setInt(10, idUsuario);
 
             int filas = ps.executeUpdate();
             if (filas > 0) {
@@ -36,7 +42,8 @@ public class ArticuloDAO {
 
     public List<Articulo> listarArticulos() throws SQLException {
         List<Articulo> articulos = new ArrayList<>();
-        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo";
+        // Se añade 'detalles' a la selección
+        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -47,26 +54,31 @@ public class ArticuloDAO {
         return articulos;
     }
 
-    public boolean actualizarArticulo(Articulo articulo) throws SQLException {
-        String sql = "UPDATE articulo SET nombre=?, codigo_bien_nacional=?, categoria=?, altura=?, anchura=?, profundidad=?, espacio_unitario=?, deshabilitado=? WHERE id_articulo=?";
+    // MODIFICADO: Se añade int idUsuario
+    public boolean actualizarArticulo(Articulo articulo, int idUsuario) throws SQLException {
+        // Se añade 'detalles' en el SET y se ajustan los índices
+        String sql = "UPDATE articulo SET nombre=?, codigo_bien_nacional=?, categoria=?, detalles=?, altura=?, anchura=?, profundidad=?, espacio_unitario=?, deshabilitado=?, id_usuario_modificacion=? WHERE id_articulo=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, articulo.getNombre());
             ps.setString(2, articulo.getCodigoBienNacional());
             ps.setString(3, articulo.getCategoria());
-            ps.setDouble(4, articulo.getAltura());
-            ps.setDouble(5, articulo.getAnchura());
-            ps.setDouble(6, articulo.getProfundidad());
-            ps.setDouble(7, articulo.getEspacioUnitario());
-            ps.setBoolean(8, articulo.isDeshabilitado());
-            ps.setInt(9, articulo.getIdArticulo());
+            // NUEVO: Detalles
+            ps.setString(4, articulo.getDetalles());
+            ps.setDouble(5, articulo.getAltura());
+            ps.setDouble(6, articulo.getAnchura());
+            ps.setDouble(7, articulo.getProfundidad());
+            ps.setDouble(8, articulo.getEspacioUnitario());
+            ps.setBoolean(9, articulo.isDeshabilitado());
+            // idUsuario ahora es el índice 10
+            ps.setInt(10, idUsuario);
+            
+            ps.setInt(11, articulo.getIdArticulo());
             return ps.executeUpdate() > 0;
         }
     }
 
-    // Mantienes el método de eliminación "hard" por si es necesario para otros fines,
-    // pero el botón de la vista ya no lo usa.
     public boolean eliminarArticuloPorCodigo(String codigoBienNacional) throws SQLException {
         String sql = "DELETE FROM articulo WHERE codigo_bien_nacional=?";
         try (Connection conn = ConexionBD.conectar();
@@ -76,7 +88,6 @@ public class ArticuloDAO {
         }
     }
     
-    // Mantienes el método de eliminación "hard" por si es necesario para otros fines.
     public boolean eliminarArticuloPorId(int idArticulo) throws SQLException { 
         String sql = "DELETE FROM articulo WHERE id_articulo=?";
         try (Connection conn = ConexionBD.conectar(); 
@@ -86,7 +97,7 @@ public class ArticuloDAO {
         } 
     }
 
-    // ⭐ Método para Soft Delete (Actualizar estado deshabilitado) ⭐
+    // Método para Soft Delete (Actualizar estado deshabilitado)
     public boolean actualizarEstado(int idArticulo, boolean deshabilitar) throws SQLException {
         String sql = "UPDATE articulo SET deshabilitado = ? WHERE id_articulo = ?";
         try (Connection conn = ConexionBD.conectar();
@@ -101,7 +112,8 @@ public class ArticuloDAO {
     }
 
     public Articulo obtenerArticuloPorId(int idArticulo) throws SQLException {
-        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE id_articulo=?";
+        // Se añade 'detalles' a la selección
+        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE id_articulo=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, idArticulo);
@@ -114,7 +126,8 @@ public class ArticuloDAO {
 
     public List<Articulo> buscarArticulos(String nombre, String codigoBien) {
         List<Articulo> lista = new ArrayList<>();
-        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE nombre LIKE ? OR codigo_bien_nacional LIKE ?";
+        // Se añade 'detalles' a la selección
+        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE nombre LIKE ? OR codigo_bien_nacional LIKE ?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, "%" + nombre + "%");
@@ -129,7 +142,8 @@ public class ArticuloDAO {
 
     public List<Articulo> buscarPorCategoria(String categoria) {
         List<Articulo> lista = new ArrayList<>();
-        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE categoria=?";
+        // Se añade 'detalles' a la selección
+        String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE categoria=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, categoria);
@@ -145,7 +159,8 @@ public class ArticuloDAO {
         List<Articulo> lista = new ArrayList<>();
         List<Object> params = new ArrayList<>(); 
         
-        StringBuilder sql = new StringBuilder("SELECT id_articulo, nombre, codigo_bien_nacional, categoria, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE 1=1");
+        // Se añade 'detalles' a la selección
+        StringBuilder sql = new StringBuilder("SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE 1=1");
 
         if (nombre != null && !nombre.trim().isEmpty()) {
             sql.append(" AND nombre LIKE ?");
@@ -186,6 +201,8 @@ public class ArticuloDAO {
         a.setNombre(rs.getString("nombre"));
         a.setCodigoBienNacional(rs.getString("codigo_bien_nacional"));
         a.setCategoria(rs.getString("categoria"));
+        // NUEVO: Mapear Detalles
+        a.setDetalles(rs.getString("detalles")); 
         a.setAltura(rs.getDouble("altura"));
         a.setAnchura(rs.getDouble("anchura"));
         a.setProfundidad(rs.getDouble("profundidad"));

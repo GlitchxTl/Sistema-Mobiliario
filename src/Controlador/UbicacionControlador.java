@@ -16,7 +16,6 @@ public class UbicacionControlador {
 
     /**
      * Devuelve la lista de todas las ubicaciones desde la base de datos.
-     * (Renombrado para ser más claro para la Vista)
      */
     public List<Ubicacion> obtenerTodasUbicaciones() {
         try {
@@ -28,7 +27,7 @@ public class UbicacionControlador {
         }
     }
     
-    // ⭐ CAMBIO CLAVE: Nuevo método para Soft Delete/Habilitar ⭐
+    // ⭐ MÉTODO PARA SOFT DELETE / HABILITAR (Delegación correcta) ⭐
     public boolean actualizarEstadoDeshabilitado(int idUbicacion, boolean nuevoEstado) {
         try {
             return ubicacionDAO.actualizarEstado(idUbicacion, nuevoEstado);
@@ -75,6 +74,8 @@ public class UbicacionControlador {
     }
 
     public boolean eliminarUbicacionPorId(int id_ubicacion) {
+        // NOTA: Este método ejecuta una ELIMINACIÓN FÍSICA (DELETE). 
+        // Para usar el Soft Delete, se debe usar 'actualizarEstadoDeshabilitado' con 'true'.
         try {
             return ubicacionDAO.eliminar(id_ubicacion); 
         } catch (SQLException e) {
@@ -88,6 +89,8 @@ public class UbicacionControlador {
         List<String> nombres = new ArrayList<>();
         try {
             List<Ubicacion> lista = ubicacionDAO.listar(); 
+            // Si necesitas solo los nombres de ubicaciones HABILITADAS, debes filtrar la lista aquí
+            // o crear un método específico en el DAO (e.g., listarNombresHabilitados()).
             for (Ubicacion u : lista) {
                 nombres.add(u.getNombre());
             }

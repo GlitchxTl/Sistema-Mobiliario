@@ -16,6 +16,7 @@ import java.util.List;
 import Modelo.CapacidadInsuficienteException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Calendar;
 
 public class PanelEntrada extends javax.swing.JFrame {
 
@@ -28,10 +29,11 @@ public class PanelEntrada extends javax.swing.JFrame {
     // Constructor que recibe el usuario
     public PanelEntrada(Usuario usuario) {
         initComponents();
+        this.setResizable(false);
         this.usuarioActual = usuario;
         
         // ⭐ AJUSTE: Ocultar bModificar si no es Administrador ⭐
-        ocultarBotonModificar(); 
+        ocultarBotones(); 
         
         cargarCombos();
         cargarTablaMovimientos();
@@ -49,11 +51,12 @@ public class PanelEntrada extends javax.swing.JFrame {
     // --- LÓGICA DE VISIBILIDAD DEL BOTÓN MODIFICAR ---
     // -----------------------------------------------------------------------
     
-    private void ocultarBotonModificar() {
+    private void ocultarBotones() {
         // Si el usuario no es 'Administrador', el botón de Modificar se oculta.
         // Se asume que existe un componente llamado 'bModificar'.
         if (usuarioActual != null && !"Administrador".equals(usuarioActual.getRol())) {
             bModificar.setVisible(false);
+            
         }
     }
 
@@ -84,7 +87,7 @@ public class PanelEntrada extends javax.swing.JFrame {
         try {
             // Artículos
             DefaultComboBoxModel<Articulo> mArticulos = new DefaultComboBoxModel<>();
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulosc();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
             for (Articulo a : articulos) mArticulos.addElement(a);
             jCBArticuloEntrada.setModel(mArticulos);
 
@@ -104,35 +107,120 @@ public class PanelEntrada extends javax.swing.JFrame {
 
     // --- MÉTODO onRegistrarEntrada() (SE MANTIENE IGUAL) ---
     private void onRegistrarEntrada() {
+
         
+
         Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+
         Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+
         int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
 
+
+
         try {
+
             if (articulo == null || ubicacion == null) {
+
                 JOptionPane.showMessageDialog(this,
+
                         "Selecciona un artículo y una ubicación.",
+
                         "Validación", JOptionPane.WARNING_MESSAGE);
+
                 return;
-            }
-            if (cantidad <= 0) {
-                JOptionPane.showMessageDialog(this,
-                        "La cantidad debe ser mayor que cero.",
-                        "Validación", JOptionPane.WARNING_MESSAGE);
-                return;
+
             }
 
+            if (cantidad <= 0) {
+
+                JOptionPane.showMessageDialog(this,
+
+                        "La cantidad debe ser mayor que cero.",
+
+                        "Validación", JOptionPane.WARNING_MESSAGE);
+
+                return;
+
+            }
+
+
+
             Timestamp fechaVencimiento = null;
+
             if (jCheckBoxVencimiento.isSelected()) {
+
                 Date selectedDate = jDateVencimiento.getDate();
+
                 if (selectedDate == null) {
+
                     JOptionPane.showMessageDialog(this,
+
                             "Selecciona una fecha de vencimiento válida.",
+
                             "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
+
                     return;
+
                 }
+
+                
+
                 fechaVencimiento = new Timestamp(selectedDate.getTime());
+
+                
+
+                // ⭐ INICIO DE LA SOLUCIÓN 3: Comparar solo por DÍA ⭐
+
+                
+
+                // 1. Poner la hora del vencimiento seleccionado a 00:00:00 (solo para la comparación)
+
+                java.util.Calendar calVencimiento = java.util.Calendar.getInstance();
+
+                calVencimiento.setTime(fechaVencimiento);
+
+                calVencimiento.set(java.util.Calendar.HOUR_OF_DAY, 0);
+
+                calVencimiento.set(java.util.Calendar.MINUTE, 0);
+
+                calVencimiento.set(java.util.Calendar.SECOND, 0);
+
+                calVencimiento.set(java.util.Calendar.MILLISECOND, 0);
+
+
+
+                // 2. Obtener la hora actual y ponerla a 00:00:00 (para representar "Hoy")
+
+                java.util.Calendar calHoy = java.util.Calendar.getInstance();
+
+                calHoy.set(java.util.Calendar.HOUR_OF_DAY, 0);
+
+                calHoy.set(java.util.Calendar.MINUTE, 0);
+
+                calHoy.set(java.util.Calendar.SECOND, 0);
+
+                calHoy.set(java.util.Calendar.MILLISECOND, 0);
+
+                
+
+                // 3. Comparar si el día de vencimiento es ESTRICTAMENTE anterior al día de hoy.
+
+                // Usamos el Calendar modificado para la comparación.
+
+                if (calVencimiento.before(calHoy)) { 
+
+                    JOptionPane.showMessageDialog(this, 
+
+                        "La fecha de vencimiento no puede ser anterior al día de hoy.\n" +
+
+                        "El producto ya está vencido y no puede registrarse.", 
+
+                        "Producto Vencido", JOptionPane.ERROR_MESSAGE);
+
+                    return; 
+
+                }
             }
 
             Double costo = null;
@@ -370,7 +458,7 @@ public class PanelEntrada extends javax.swing.JFrame {
         jPanel1 = new javax.swing.JPanel();
         jPanel2 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
+        jLabelTitulo = new javax.swing.JLabel();
         jButton1 = new javax.swing.JButton();
         jButton4 = new javax.swing.JButton();
         jButton5 = new javax.swing.JButton();
@@ -396,8 +484,8 @@ public class PanelEntrada extends javax.swing.JFrame {
         jPanel5 = new javax.swing.JPanel();
         bRegistrarEntrada = new javax.swing.JButton();
         bConsultar = new javax.swing.JButton();
-        bVerTodo = new javax.swing.JButton();
         bModificar = new javax.swing.JButton();
+        bVerTodo = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -421,11 +509,11 @@ public class PanelEntrada extends javax.swing.JFrame {
 
         jPanel2.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 116, 1367, -1));
 
-        jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Entrada");
-        jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(6, 0, 792, 60));
+        jLabelTitulo.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
+        jLabelTitulo.setForeground(new java.awt.Color(255, 255, 255));
+        jLabelTitulo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelTitulo.setText("Entrada de Bienes Mobiliarios");
+        jPanel2.add(jLabelTitulo, new org.netbeans.lib.awtextra.AbsoluteConstraints(6, 0, 792, 60));
 
         jButton1.setBackground(new java.awt.Color(13, 51, 131));
         jButton1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
@@ -547,7 +635,7 @@ public class PanelEntrada extends javax.swing.JFrame {
         jPanel4.add(jLabelVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 400, 170, 30));
 
         jLabelCosto.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
-        jLabelCosto.setText("Costo:");
+        jLabelCosto.setText("Costo (Bs.):");
         jPanel4.add(jLabelCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 170, 30));
         jPanel4.add(jTFCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 310, 160, 30));
         jPanel4.add(jDateVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(190, 400, 150, 30));
@@ -593,17 +681,6 @@ public class PanelEntrada extends javax.swing.JFrame {
         });
         jPanel5.add(bConsultar);
 
-        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
-        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
-        bVerTodo.setText("Ver todo");
-        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVerTodoActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bVerTodo);
-
         bModificar.setBackground(new java.awt.Color(13, 51, 131));
         bModificar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         bModificar.setForeground(new java.awt.Color(255, 255, 255));
@@ -614,6 +691,17 @@ public class PanelEntrada extends javax.swing.JFrame {
             }
         });
         jPanel5.add(bModificar);
+
+        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
+        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
+        bVerTodo.setText("Ver Todo");
+        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bVerTodoActionPerformed(evt);
+            }
+        });
+        jPanel5.add(bVerTodo);
 
         jPanel4.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 430, 800, 50));
 
@@ -803,8 +891,12 @@ public class PanelEntrada extends javax.swing.JFrame {
     }
     }//GEN-LAST:event_bModificarActionPerformed
 
+    private void bModificar1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bModificar1ActionPerformed
+    
+    }//GEN-LAST:event_bModificar1ActionPerformed
+
     private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
-        // TODO add your handling code here:                                          
+        // TODO add your handling code here:
     try {
         // 1. Limpiar la selección de los ComboBoxes (para enviar null al DAO)
         jCBArticuloEntrada.setSelectedItem(null); 
@@ -818,7 +910,7 @@ public class PanelEntrada extends javax.swing.JFrame {
         model.setRowCount(0);
 
         for (Movimiento m : lista) {
-            // ... (Tu lógica para añadir filas a la tabla) ...
+            
             Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
             
             model.addRow(new Object[]{
@@ -836,7 +928,7 @@ public class PanelEntrada extends javax.swing.JFrame {
     } catch (Exception e) {
         e.printStackTrace();
         JOptionPane.showMessageDialog(this, "Error al cargar todos los movimientos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
+    }    
     }//GEN-LAST:event_bVerTodoActionPerformed
 
     /**
@@ -859,13 +951,13 @@ public class PanelEntrada extends javax.swing.JFrame {
     private com.toedter.calendar.JDateChooser jDateVencimiento;
     private javax.swing.JFormattedTextField jFTCantidadEntrada;
     private javax.swing.JFormattedTextField jFTEntregadoA;
-    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabelCosto;
+    private javax.swing.JLabel jLabelTitulo;
     private javax.swing.JLabel jLabelVencimiento;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;

@@ -5,23 +5,19 @@ public class Articulo {
     private String nombre;
     private String codigoBienNacional;
     private String categoria;
-    private double altura;             // metros
-    private double anchura;            // metros
-    private double profundidad;        // metros
-    private double espacioUnitario;    // m³ (calculado)
-    
-    // ⭐ CAMBIO 1: Nuevo atributo para soft-delete ⭐
-    private boolean deshabilitado; 
+    private String detalles; 
+    private double altura;
+    private double anchura;
+    private double profundidad;
+    private double espacioUnitario;
+    private boolean deshabilitado;
 
-    // Constructor vacío
     public Articulo() {
-        this.deshabilitado = false; // Por defecto, habilitado
+        this.deshabilitado = false;
     }
 
-    // Constructor completo
-    public Articulo(String nombre, String codigoBienNacional, String categoria,
-                    double altura, double anchura, double profundidad) {
-        this(); // Llama al constructor vacío para inicializar deshabilitado = false
+    public Articulo(String nombre, String codigoBienNacional, String categoria, double altura, double anchura, double profundidad) {
+        this();
         this.nombre = nombre;
         this.codigoBienNacional = codigoBienNacional;
         this.categoria = categoria;
@@ -29,9 +25,14 @@ public class Articulo {
         this.anchura = anchura;
         this.profundidad = profundidad;
         this.espacioUnitario = calcularEspacio();
+        this.detalles = ""; 
     }
     
-    // (Métodos calcularEspacio y recalcularEspacio sin cambios)
+    public Articulo(String nombre, String codigoBienNacional, String categoria, String detalles, double altura, double anchura, double profundidad) {
+        this(nombre, codigoBienNacional, categoria, altura, anchura, profundidad);
+        this.detalles = detalles;
+    }
+    
     public double calcularEspacio() {
         return altura * anchura * profundidad;
     }
@@ -40,7 +41,6 @@ public class Articulo {
         this.espacioUnitario = calcularEspacio();
     }
 
-    // Getters y Setters
     public int getIdArticulo() { return idArticulo; }
     public void setIdArticulo(int idArticulo) { this.idArticulo = idArticulo; }
 
@@ -52,6 +52,9 @@ public class Articulo {
 
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
+    
+    public String getDetalles() { return detalles; }
+    public void setDetalles(String detalles) { this.detalles = detalles; }
 
     public double getAltura() { return altura; }
     public void setAltura(double altura) { this.altura = altura; recalcularEspacio(); }
@@ -64,8 +67,7 @@ public class Articulo {
 
     public double getEspacioUnitario() { return espacioUnitario; }
     public void setEspacioUnitario(double espacioUnitario) { this.espacioUnitario = espacioUnitario; }
-    
-    // ⭐ CAMBIO 2: Getter y Setter para deshabilitado ⭐
+
     public boolean isDeshabilitado() { return deshabilitado; }
     public void setDeshabilitado(boolean deshabilitado) { this.deshabilitado = deshabilitado; }
 
@@ -74,7 +76,6 @@ public class Articulo {
         return nombre + " (" + codigoBienNacional + ")";
     }
 }
-
 
 
 

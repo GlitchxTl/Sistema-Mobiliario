@@ -1,60 +1,63 @@
 package Modelo;
 
-import util.ConexionBD;
-import java.sql.*;
+import Modelo.ArticuloStock; // Necesitarás crear esta clase modelo
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class InventarioDAO {
 
-    // Stock total de un artículo (suma de todas las ubicaciones)
-    public int obtenerStockTotal(int idArticulo) throws SQLException {
-        String sql = "SELECT COALESCE(SUM(stock),0) AS total FROM inventario WHERE id_articulo = ?";
-        try (Connection con = ConexionBD.conectar();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, idArticulo);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("total");
-                return 0;
-            }
+    private String jdbcURL = "jdbc:mysql://localhost:3306/tu_base_de_datos"; // ¡ACTUALIZA TU URL!
+    private String jdbcUsername = "tu_usuario"; // ¡ACTUALIZA TU USUARIO!
+    private String jdbcPassword = "tu_password"; // ¡ACTUALIZA TU CONTRASEÑA!
+
+    public InventarioDAO() {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al cargar el driver JDBC: " + e.getMessage());
         }
     }
 
-    // Stock en una ubicación concreta (0 si no existe)
-    public int obtenerStockPorUbicacion(int idArticulo, int idUbicacion) throws SQLException {
-        String sql = "SELECT stock FROM inventario WHERE id_articulo = ? AND id_ubicacion = ?";
-        try (Connection con = ConexionBD.conectar();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, idArticulo);
-            ps.setInt(2, idUbicacion);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("stock");
-                return 0;
-            }
-        }
+    protected Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(jdbcURL, jdbcUsername, jdbcPassword);
     }
 
-    // Upsert: crea o actualiza stock para id_articulo + id_ubicacion
-    public boolean upsertStock(int idArticulo, int idUbicacion, int nuevaCantidad) throws SQLException {
-        // primero intentar UPDATE
-        String sqlUpdate = "UPDATE inventario SET stock = ? WHERE id_articulo = ? AND id_ubicacion = ?";
-        try (Connection con = ConexionBD.conectar();
-             PreparedStatement ps = con.prepareStatement(sqlUpdate)) {
-            ps.setInt(1, nuevaCantidad);
-            ps.setInt(2, idArticulo);
-            ps.setInt(3, idUbicacion);
-            int filas = ps.executeUpdate();
-            if (filas > 0) return true;
+    // Método para obtener el Top N de artículos con más stock
+    public List<ArticuloStock> getTopNArticulosConMasStock(int topN) throws SQLException {
+        List<ArticuloStock> listaArticulos = new ArrayList<>();
+        // Query de la vista V_InventarioGeneral para ordenar por TotalStock descendente
+        String SQL = "SELECT NombreArticulo, TotalStock FROM V_InventarioGeneral ORDER BY TotalStock DESC LIMIT ?";
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SQL)) {
+            preparedStatement.setInt(1, topN);
+            ResultSet rs = preparedStatement.executeQuery();
+            while (rs.next()) {
+                listaArticulos.add(new ArticuloStock(rs.getString("NombreArticulo"), rs.getInt("TotalStock")));
+            }
         }
+        return listaArticulos;
+    }
 
-        // si no actualizó, INSERT
-        String sqlInsert = "INSERT INTO inventario (id_articulo, id_ubicacion, stock) VALUES (?, ?, ?)";
-        try (Connection con = ConexionBD.conectar();
-             PreparedStatement ps2 = con.prepareStatement(sqlInsert)) {
-            ps2.setInt(1, idArticulo);
-            ps2.setInt(2, idUbicacion);
-            ps2.setInt(3, nuevaCantidad);
-            int filas2 = ps2.executeUpdate();
-            return filas2 > 0;
+    // Método para obtener el Top N de artículos con menos stock
+    public List<ArticuloStock> getTopNArticulosConMenosStock(int topN) throws SQLException {
+        List<ArticuloStock> listaArticulos = new ArrayList<>();
+        // Query de la vista V_InventarioGeneral para ordenar por TotalStock ascendente
+        String SQL = "SELECT NombreArticulo, TotalStock FROM V_InventarioGeneral ORDER BY TotalStock ASC LIMIT ?";
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SQL)) {
+            preparedStatement.setInt(1, topN);
+            ResultSet rs = preparedStatement.executeQuery();
+            while (rs.next()) {
+                listaArticulos.add(new ArticuloStock(rs.getString("NombreArticulo"), rs.getInt("TotalStock")));
+            }
         }
+        return listaArticulos;
     }
 }
 

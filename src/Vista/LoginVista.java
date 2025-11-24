@@ -11,6 +11,7 @@ public class LoginVista extends javax.swing.JFrame {
 
     public LoginVista() {
         initComponents();
+        this.setResizable(false);
         setLocationRelativeTo(null); // Centrar la ventana
         // Configurar cursores
         bIngresar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

@@ -51,7 +51,7 @@ public class PanelSalida extends javax.swing.JFrame {
     public PanelSalida(Usuario usuario) {
 
         initComponents();
-
+        this.setResizable(false);
         this.usuarioActual = usuario; // Guarda el usuario
 
         
@@ -104,7 +104,7 @@ public class PanelSalida extends javax.swing.JFrame {
 
             DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
 
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulosc();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
 
             for (Articulo a : articulos) modeloArticulos.addElement(a);
 
@@ -780,7 +780,7 @@ private void cargarTablaEntradas() {
         jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
         jLabel1.setForeground(new java.awt.Color(255, 255, 255));
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Salida");
+        jLabel1.setText("Baja de Mobiliario");
         jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(-2, 0, 800, 60));
 
         jButton1.setBackground(new java.awt.Color(13, 51, 131));
@@ -836,7 +836,6 @@ private void cargarTablaEntradas() {
 
         jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("Salida");
         jPanel4.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 350, 57));
 
         jLabel15.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N

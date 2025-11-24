@@ -13,19 +13,19 @@ public class UbicacionDAO {
     public boolean crear(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // ⭐ CAMBIO 1: Añadir 'deshabilitado' al INSERT ⭐
+        // El SQL se actualiza para incluir 'deshabilitado'
         String sql = "INSERT INTO ubicacion (nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            ps.setString(1, u.getNombre());
+            ps.setString(1, util.util.capitalizar (u.getNombre()));
             ps.setDouble(2, u.getAltura());
             ps.setDouble(3, u.getAnchura());
             ps.setDouble(4, u.getProfundidad());
             ps.setDouble(5, u.getCapacidad());
             ps.setDouble(6, u.getCapacidad()); // Inicializar capacidad_restante
-            ps.setString(7, u.getDescripcion());
-            ps.setBoolean(8, u.isDeshabilitado()); // ⭐ Nuevo parámetro ⭐
+            ps.setString(7, util.util.capitalizar (u.getDescripcion()));
+            ps.setBoolean(8, u.isDeshabilitado()); // Lectura del nuevo campo
 
             int filas = ps.executeUpdate();
             if (filas > 0) {
@@ -41,7 +41,7 @@ public class UbicacionDAO {
     public boolean actualizar(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // ⭐ CAMBIO 2: Añadir 'deshabilitado' al UPDATE ⭐
+        // El SQL se actualiza para incluir 'deshabilitado' en el SET
         String sql = "UPDATE ubicacion SET nombre=?, altura=?, anchura=?, profundidad=?, capacidad=?, descripcion=?, deshabilitado=? WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -52,7 +52,7 @@ public class UbicacionDAO {
             ps.setDouble(4, u.getProfundidad());
             ps.setDouble(5, u.getCapacidad());
             ps.setString(6, u.getDescripcion());
-            ps.setBoolean(7, u.isDeshabilitado()); // ⭐ Nuevo parámetro ⭐
+            ps.setBoolean(7, u.isDeshabilitado()); // Lectura del nuevo campo
             ps.setInt(8, u.getId_ubicacion());
             return ps.executeUpdate() > 0;
         }
@@ -68,7 +68,7 @@ public class UbicacionDAO {
         }
     }
     
-    // ⭐ CAMBIO 3: Método para Soft Delete/Habilitar ⭐
+    // ⭐ Método para Soft Delete/Habilitar ⭐
     /**
      * Actualiza el estado de deshabilitado de una ubicación.
      */
@@ -88,7 +88,7 @@ public class UbicacionDAO {
     // --- Mapeo y Listado ---
 
     public Ubicacion obtenerPorId(int id_ubicacion) throws SQLException {
-        // ⭐ CAMBIO 4: Seleccionar 'deshabilitado' ⭐
+        // Seleccionar 'deshabilitado'
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -102,7 +102,7 @@ public class UbicacionDAO {
 
     public List<Ubicacion> listar() throws SQLException {
         List<Ubicacion> res = new ArrayList<>();
-        // ⭐ CAMBIO 5: Seleccionar 'deshabilitado' ⭐
+        // Seleccionar 'deshabilitado'
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion ORDER BY nombre";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -116,7 +116,7 @@ public class UbicacionDAO {
     
     public List<Ubicacion> buscar(String nombre) throws SQLException {
         List<Ubicacion> lista = new ArrayList<>();
-        // ⭐ CAMBIO 6: Seleccionar 'deshabilitado' ⭐
+        // Seleccionar 'deshabilitado'
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE nombre LIKE ?";
 
         try (Connection con = ConexionBD.conectar();
@@ -133,7 +133,7 @@ public class UbicacionDAO {
     
     public List<Ubicacion> listarConEspacioSuficiente(double espacioRequerido, int idUbicacionAExcluir) throws SQLException {
         List<Ubicacion> res = new ArrayList<>();
-        // ⭐ CAMBIO 7: Seleccionar 'deshabilitado' y excluir deshabilitadas del resultado (solo mostrará ubicaciones HABILITADAS) ⭐
+        // Excluir ubicaciones deshabilitadas y la actual
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE capacidad_restante >= ? AND id_ubicacion != ? AND deshabilitado = FALSE ORDER BY nombre";
         
         try (Connection con = ConexionBD.conectar();
@@ -151,6 +151,31 @@ public class UbicacionDAO {
         return res;
     }
 
+    /**
+     * Obtiene el stock total de un artículo en una ubicación específica.
+     */
+     public int obtenerStockPorArticuloYUbicacion(int idArticulo, int idUbicacion) throws SQLException {
+        // Esta es una implementación ASUMIDA que llama a la función de la DB o realiza la lógica de conteo
+        // (por ejemplo, sumando ENTRADAS y restando SALIDAS y TRASLADOS)
+        // Usamos una función simple de ejemplo, asumiendo que tienes una vista o función de stock en tu DB.
+        String sql = "SELECT SUM(stock) FROM vw_stock_por_ubicacion WHERE id_articulo = ? AND id_ubicacion = ?";
+        // NOTA: Si no tienes esta vista, debes usar la lógica de restar entradas y salidas.
+        
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, idArticulo);
+            ps.setInt(2, idUbicacion);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1); // El stock total
+                }
+            }
+        }
+        return 0;
+    }
+    
     // --- Métodos Auxiliares ---
 
     private Ubicacion mapearUbicacion(ResultSet rs) throws SQLException {
@@ -161,7 +186,7 @@ public class UbicacionDAO {
             rs.getDouble("anchura"),
             rs.getDouble("profundidad"),
             rs.getString("descripcion"),
-            rs.getBoolean("deshabilitado") // ⭐ CAMBIO 8: Leer el nuevo campo ⭐
+            rs.getBoolean("deshabilitado") // Lectura del nuevo campo
         );
         u.setCapacidad(rs.getDouble("capacidad"));
         u.setCapacidadRestante(rs.getDouble("capacidad_restante"));
@@ -192,6 +217,7 @@ public class UbicacionDAO {
         nueva.setAnchura(1);
         nueva.setProfundidad(1);
         nueva.setDescripcion("Creada automáticamente");
+        nueva.setDeshabilitado(false); // Por defecto, una ubicación creada está HABILITADA
         if (crear(nueva)) return nueva.getId_ubicacion();
         return null;
     }

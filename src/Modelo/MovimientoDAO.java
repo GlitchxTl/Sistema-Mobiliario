@@ -41,7 +41,8 @@ public class MovimientoDAO {
             else ps.setInt(6, m.getIdUbicacionDestino());
 
             ps.setString(7, m.getMotivo());
-            ps.setString(8, m.getEntregado());
+            ps.setString(8, util.util.capitalizar(m.getEntregado()));
+
 
             if (m.getFechaVencimiento() != null)
                 ps.setTimestamp(9, m.getFechaVencimiento());
