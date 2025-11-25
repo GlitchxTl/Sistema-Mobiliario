@@ -5,11 +5,11 @@
 package util;
 
 import Vista.LoginVista;
-import Vista.PrincipalVista;
 import Controlador.AuthControlador;
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 /**
  *
  * @author Dell
@@ -24,6 +24,30 @@ public class Main {
         login.setVisible(true);
     });
         }
+        
+        
+        public static void iniciarCargaBcv() {
+        SwingWorker<Double, Void> worker = new SwingWorker<Double, Void>() {
+            @Override
+            protected Double doInBackground() throws Exception {
+                Bcv bcv = new Bcv();
+                return bcv.getRate();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Double rate = get();
+                    GestorBcv.getInstance().setTasaActual(rate);
+
+                } catch (Exception e) {
+                    GestorBcv.getInstance().setTasaActual(-1.0);
+                   
+                }
+            }
+        };
+        worker.execute();
+    }
 } 
 
 
