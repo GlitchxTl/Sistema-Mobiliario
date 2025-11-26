@@ -116,14 +116,14 @@ public class GeneradorGraficos {
         for (java.util.Map.Entry<String, Double> entry : datos.entrySet()) {
             // Aseguramos que los nombres largos se vean bien en el gráfico horizontal
             // Clave: Ubicación, Valor: Monto
-            dataset.addValue(entry.getValue(), "Valor (Bs)", entry.getKey()); 
+            dataset.addValue(entry.getValue(), "Valor ($)", entry.getKey()); 
         }
 
         // Crear el gráfico base (similar al anterior, pero ajustando etiquetas)
         JFreeChart chart = ChartFactory.createBarChart(
                 titulo,                             // Título
                 "Ubicación",                        // Eje X (Nombres de Ubicaciones)
-                "Valor Total (Bs)",                // Eje Y (Valores monetarios)
+                "Valor Total ($)",                // Eje Y (Valores monetarios)
                 dataset,
                 PlotOrientation.HORIZONTAL,         // Barras horizontales
                 true, true, false

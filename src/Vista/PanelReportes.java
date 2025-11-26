@@ -6,7 +6,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 
-public class PanelEstadistica extends JFrame {
+public class PanelReportes extends JFrame {
 
     private Usuario usuarioActual;
     
@@ -16,25 +16,25 @@ public class PanelEstadistica extends JFrame {
     private final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 18);
 
     // Componentes
-    private JButton bArticulosStock;
-    private JButton bValorMobiliario;
+    private JButton bAuditoría;
+    private JButton bVistaReporteGastos;
     private JButton bVolver;
 
-    public PanelEstadistica(Usuario usuario) {
+    public PanelReportes(Usuario usuario) {
         this.usuarioActual = usuario;
         
         // Configuración de la Ventana
-        setTitle("Menú de Estadísticas");
+        setTitle("Menú de Reportes");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 500);
+        setSize(800, 500); // Tamaño inicial razonable
         setMinimumSize(new Dimension(600, 400));
         setLocationRelativeTo(null);
 
         initUI();
     }
 
-    // Constructor vacío
-    public PanelEstadistica() {
+    // Constructor vacío para compatibilidad
+    public PanelReportes() {
         this(null);
     }
 
@@ -48,10 +48,10 @@ public class PanelEstadistica extends JFrame {
         // ==========================================
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(COLOR_AZUL);
-        headerPanel.setPreferredSize(new Dimension(getWidth(), 80));
+        headerPanel.setPreferredSize(new Dimension(getWidth(), 80)); // Un poco más alto para el título grande
         headerPanel.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-        JLabel lblTitulo = new JLabel("Estadísticas", SwingConstants.CENTER);
+        JLabel lblTitulo = new JLabel("Reportes", SwingConstants.CENTER);
         lblTitulo.setFont(FONT_TITLE);
         lblTitulo.setForeground(Color.WHITE);
 
@@ -63,33 +63,34 @@ public class PanelEstadistica extends JFrame {
         mainPanel.add(headerPanel, BorderLayout.NORTH);
 
         // ==========================================
-        // 2. CONTENIDO CENTRAL (BOTONES)
+        // 2. CONTENIDO CENTRAL (BOTONES DE MENÚ)
         // ==========================================
         JPanel centerPanel = new JPanel(new GridBagLayout());
         centerPanel.setBackground(Color.WHITE);
         
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(20, 20, 20, 20);
+        gbc.insets = new Insets(20, 20, 20, 20); // Espacio entre botones
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 0.5;
         gbc.weighty = 0.5;
 
-        // Botón Stock
-        bArticulosStock = crearBotonMenu("Cantidad de Bienes Total");
+        // Botón Auditoría
+        bAuditoría = crearBotonMenu("Auditoría");
         gbc.gridx = 0;
         gbc.gridy = 0;
-        centerPanel.add(bArticulosStock, gbc);
+        centerPanel.add(bAuditoría, gbc);
 
-        // Botón Valor Mobiliario
-        bValorMobiliario = crearBotonMenu("Valor total Mobiliario por ubicación");
+        // Botón Reporte Gastos
+        bVistaReporteGastos = crearBotonMenu("Reportes Gastos Operativos");
         gbc.gridx = 1;
         gbc.gridy = 0;
-        centerPanel.add(bValorMobiliario, gbc);
+        centerPanel.add(bVistaReporteGastos, gbc);
 
-        // Wrapper para controlar el tamaño
+        // Contenedor intermedio para controlar el tamaño máximo de los botones
+        // Esto evita que los botones se hagan gigantes en pantalla completa
         JPanel wrapperPanel = new JPanel(new GridBagLayout());
         wrapperPanel.setBackground(Color.WHITE);
-        wrapperPanel.add(centerPanel);
+        wrapperPanel.add(centerPanel); // Agregamos el panel de botones al wrapper centrado
 
         mainPanel.add(wrapperPanel, BorderLayout.CENTER);
     }
@@ -112,13 +113,14 @@ public class PanelEstadistica extends JFrame {
         btn.setForeground(Color.WHITE);
         btn.setFont(FONT_BUTTON);
         btn.setFocusPainted(false);
-        btn.setPreferredSize(new Dimension(300, 100));
+        // Tamaño preferido grande para los botones del menú
+        btn.setPreferredSize(new Dimension(300, 100)); 
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
-        if (texto.contains("Cantidad")) {
-            btn.addActionListener(this::bArticulosStockActionPerformed);
+        if (texto.equals("Auditoría")) {
+            btn.addActionListener(this::bAuditoríaActionPerformed);
         } else {
-            btn.addActionListener(this::bValorMobiliarioActionPerformed);
+            btn.addActionListener(this::bVistaReporteGastosActionPerformed);
         }
         
         return btn;
@@ -128,15 +130,15 @@ public class PanelEstadistica extends JFrame {
     // === ACCIONES ===
     // ==========================================
 
-    private void bArticulosStockActionPerformed(ActionEvent evt) {
-        EstadisticasArticulosStock panelArticulosStock = new EstadisticasArticulosStock(this.usuarioActual);
-        panelArticulosStock.setVisible(true);
+    private void bAuditoríaActionPerformed(ActionEvent evt) {
+        VistaLogAuditoria panelAuditoria = new VistaLogAuditoria(this.usuarioActual);
+        panelAuditoria.setVisible(true);
         this.dispose();
     }
 
-    private void bValorMobiliarioActionPerformed(ActionEvent evt) {
-        EstadisticasUbicacion panelUbicacion = new EstadisticasUbicacion(this.usuarioActual);
-        panelUbicacion.setVisible(true);
+    private void bVistaReporteGastosActionPerformed(ActionEvent evt) {
+        VistaReporteGastos panelGastos = new VistaReporteGastos(this.usuarioActual);
+        panelGastos.setVisible(true);
         this.dispose();
     }
 

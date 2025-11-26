@@ -99,17 +99,25 @@ public class ArticuloDAO {
 
     // Método para Soft Delete (Actualizar estado deshabilitado)
     public boolean actualizarEstado(int idArticulo, boolean deshabilitar) throws SQLException {
-        String sql = "UPDATE articulo SET deshabilitado = ? WHERE id_articulo = ?";
-        try (Connection conn = ConexionBD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setBoolean(1, deshabilitar); 
-            ps.setInt(2, idArticulo);
-            
-            return ps.executeUpdate() > 0;
-            
-        }
+    // Usamos el SQL CAST para convertir el valor entero a BINARY si es necesario, 
+    // o simplemente tratamos la columna como un entero 0/1, lo cual es más común.
+    String sql = "UPDATE articulo SET deshabilitado = ? WHERE id_articulo = ?";
+    
+    try (Connection conn = ConexionBD.conectar();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        
+        // Convertimos el booleano de Java a 1 o 0 (entero)
+        int valorNumerico = deshabilitar ? 1 : 0; 
+        
+        // Usamos setInt para enviar el 1 o 0.
+        // Esto tiene mayor compatibilidad con columnas BINARY/BIT/TINYINT usadas como booleanos.
+        ps.setInt(1, valorNumerico); 
+        
+        ps.setInt(2, idArticulo);
+        
+        return ps.executeUpdate() > 0;
     }
+}
 
     public Articulo obtenerArticuloPorId(int idArticulo) throws SQLException {
         // Se añade 'detalles' a la selección
@@ -210,6 +218,21 @@ public class ArticuloDAO {
         a.setDeshabilitado(rs.getBoolean("deshabilitado")); 
         return a;
     }
+    
+    public Articulo buscarPorCodigo(String codigoBienNacional) throws SQLException {
+    // Se añade 'detalles' a la selección
+    String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE codigo_bien_nacional=?";
+    try (Connection conn = ConexionBD.conectar();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        
+        ps.setString(1, codigoBienNacional);
+        
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return mapearArticulo(rs);
+        }
+    }
+    return null;
+}
 }
 
 

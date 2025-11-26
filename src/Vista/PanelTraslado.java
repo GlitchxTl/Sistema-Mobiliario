@@ -3,211 +3,273 @@ package Vista;
 import Controlador.ArticuloControlador;
 import Controlador.MovimientoControlador;
 import Modelo.Articulo;
-import Modelo.Usuario;
+import Modelo.CapacidadInsuficienteException;
 import Modelo.Movimiento;
 import Modelo.Ubicacion;
 import Modelo.UbicacionDAO;
-import java.sql.SQLException;
-import java.util.List;
+import Modelo.Usuario;
+
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.FontFactory;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Objects;
-import Modelo.CapacidadInsuficienteException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class PanelTraslado extends javax.swing.JFrame {
+public class PanelTraslado extends JFrame {
 
+    // --- Componentes de la UI ---
+    private JComboBox<Articulo> jCBArticuloTraslado;
+    private JFormattedTextField jFTCantidad;
+    private JComboBox<Ubicacion> jCBUbicacionOrigen;
+    private JComboBox<Ubicacion> jCBUbicacionDestino;
+    private JFormattedTextField jFTEntregadoA;
+    private JTable jTableTraslado;
+    private DefaultTableModel modeloTabla;
+
+    // Botones
+    private JButton bRegistrarTraslado, bConsultar, bModificar, bVerTodo, bExportar, bVolver;
+
+    // --- Variables de Control ---
     private final ArticuloControlador articuloControl = new ArticuloControlador();
     private final MovimientoControlador movimientoControl = new MovimientoControlador();
     private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
-    private Usuario usuarioActual; 
-    private Long idMovimientoSeleccionado = null; 
+    private Usuario usuarioActual;
+    private Long idMovimientoSeleccionado = null;
+
+    // Constantes de Estilo
+    private final Color COLOR_AZUL = new Color(13, 51, 131);
+    private final Font FONT_TITLE = new Font("Segoe UI Black", Font.BOLD, 18);
+    private final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
+    private final Font FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 14);
 
     // Constructor que recibe el usuario
     public PanelTraslado(Usuario usuario) {
-        initComponents();
-        this.setResizable(false);
-        this.usuarioActual = usuario; 
-        
-        // ⭐ NUEVA LÓGICA: Ocultar bModificar
-        ocultarBotonModificar(); 
-        
+        this.usuarioActual = usuario;
+
+        // Configuración de la Ventana
+        setTitle("Traslado de Bienes Mobiliarios");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1100, 700);
+        setMinimumSize(new Dimension(950, 600));
+        setLocationRelativeTo(null);
+
+        // Inicializar UI y Lógica
+        initUI();
         cargarCombos();
         cargarTablaTraslados();
+        configurarEventos();
 
-        bRegistrarTraslado.addActionListener(e -> onRegistrarTraslado());
-        
-        // ⭐ NUEVA LÓGICA: Configurar evento de la tabla
-        configurarEventoTabla();
-    }
-    
-    // (Dejas el constructor vacío si el diseñador lo requiere)
-    public PanelTraslado() {
-        this(null);
-    }
-    
-    // -----------------------------------------------------------------------
-    // --- LÓGICA DE VISIBILIDAD Y AUXILIARES ---
-    // -----------------------------------------------------------------------
-    
-    private void ocultarBotonModificar() {
-        // Si el usuario no es 'Administrador', el botón de Modificar se oculta.
-        // Se asume que existe un componente llamado 'bModificar'.
+        // Permisos
         if (usuarioActual != null && !"Administrador".equals(usuarioActual.getRol())) {
-            // Descomentado: Esto oculta el botón si el rol no es Administrador.
             bModificar.setVisible(false);
         }
     }
 
-    /** Cargar combos de artículos y ubicaciones */
-    private void cargarCombos() {
-        try {
-            // Artículos
-            DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
-            for (Articulo a : articulos) {
-                modeloArticulos.addElement(a);
-            }
-            jCBArticuloTraslado.setModel(modeloArticulos);
-
-            // Ubicaciones
-            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
-            
-            DefaultComboBoxModel<Ubicacion> modeloUbicOrigen = new DefaultComboBoxModel<>();
-            DefaultComboBoxModel<Ubicacion> modeloUbicDestino = new DefaultComboBoxModel<>();
-            
-            for (Ubicacion u : ubicaciones) {
-                modeloUbicOrigen.addElement(u);
-                modeloUbicDestino.addElement(u);
-            }
-            
-            jCBUbicacionOrigen.setModel(modeloUbicOrigen);
-            jCBUbicacionDestino.setModel(modeloUbicDestino); // Usar modelo distinto para permitir diferentes selecciones
-
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error cargando datos: " + e.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
+    // Constructor vacío
+    public PanelTraslado() {
+        this(null);
     }
 
-    /** Acción principal: registrar traslado */
-    private void onRegistrarTraslado() {
-        // Lógica de registro (se mantiene igual, solo se agrega validación de origen != destino)
-        try {
-            Articulo art = (Articulo) jCBArticuloTraslado.getSelectedItem();
-            Ubicacion origen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
-            Ubicacion destino = (Ubicacion) jCBUbicacionDestino.getSelectedItem();
-            int cantidad = parseIntSafe(jFTCantidad.getText());
-            String entregadoA = jFTEntregadoA.getText().trim();
+    private void initUI() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Color.WHITE);
+        setContentPane(mainPanel);
 
-            if (art == null || origen == null || destino == null) {
-                JOptionPane.showMessageDialog(this, "Selecciona artículo, ubicación origen y destino.",
-                        "Validación", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (Objects.equals(origen.getId_ubicacion(), destino.getId_ubicacion())) {
-            JOptionPane.showMessageDialog(this, "La ubicación origen y destino no pueden ser la misma.",
-            "Validación", JOptionPane.WARNING_MESSAGE);
-            return;
-            }
-            if (cantidad <= 0) {
-                JOptionPane.showMessageDialog(this, "Cantidad inválida (>0).",
-                        "Validación", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            // ... (Lógica de capacidad y llamado al controlador) ...
-            
-            Ubicacion uDestino = ubicacionDAO.obtenerPorId(destino.getId_ubicacion());
-            double volumenArticulo = art.getAltura() * art.getAnchura() * art.getProfundidad();
-            double volumenTotal = volumenArticulo * cantidad;
+        // ==========================================
+        // 1. HEADER (NORTE)
+        // ==========================================
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(COLOR_AZUL);
+        headerPanel.setPreferredSize(new Dimension(getWidth(), 60));
+        headerPanel.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-            if (uDestino.getCapacidadRestante() < volumenTotal) {
-                 JOptionPane.showMessageDialog(this,
-                         "No hay suficiente espacio en la ubicación destino.\nCapacidad restante: "
-                                 + uDestino.getCapacidadRestante() + " m³",
-                         "Capacidad insuficiente", JOptionPane.WARNING_MESSAGE);
-                 return;
-             }
+        JLabel lblTitulo = new JLabel("Traslado de Bienes Mobiliarios", SwingConstants.CENTER);
+        lblTitulo.setFont(FONT_TITLE);
+        lblTitulo.setForeground(Color.WHITE);
 
-            boolean ok = movimientoControl.registrarTraslado(
-                art.getIdArticulo(),
-                cantidad,
-                origen.getId_ubicacion(),
-                destino.getId_ubicacion(),
-                jFTEntregadoA.getText().trim()
-            );
+        bVolver = crearBotonHeader("Volver");
 
-            if (ok) {
-                JOptionPane.showMessageDialog(this, "Traslado registrado correctamente.",
-                        "OK", JOptionPane.INFORMATION_MESSAGE);
-                jFTCantidad.setText("");
-                jFTEntregadoA.setText("");
-                cargarTablaTraslados();
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "No se pudo registrar el traslado.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            }
+        headerPanel.add(lblTitulo, BorderLayout.CENTER);
+        headerPanel.add(bVolver, BorderLayout.EAST);
 
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Error SQL: " + ex.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
-        }
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+
+        // ==========================================
+        // 2. CONTENIDO CENTRAL (CENTRO)
+        // ==========================================
+        JPanel centerPanel = new JPanel(new GridBagLayout());
+        centerPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+
+        // --- Panel Formulario (Izquierda) ---
+        JPanel formPanel = crearPanelFormulario();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0.35; // 35% del ancho
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 20, 10, 10);
+        centerPanel.add(formPanel, gbc);
+
+        // --- Panel Tabla (Derecha) ---
+        JPanel tablePanel = crearPanelTabla();
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 0.65; // 65% del ancho
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 0, 10, 20);
+        centerPanel.add(tablePanel, gbc);
+
+        mainPanel.add(centerPanel, BorderLayout.CENTER);
+
+        // ==========================================
+        // 3. FOOTER BOTONES (SUR)
+        // ==========================================
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+        footerPanel.setBackground(Color.WHITE);
+
+        bRegistrarTraslado = crearBotonAccion("Registrar");
+        bConsultar = crearBotonAccion("Consultar");
+        bModificar = crearBotonAccion("Modificar");
+        bVerTodo = crearBotonAccion("Ver Todo");
+        bExportar = crearBotonAccion("Exportar");
+
+        footerPanel.add(bRegistrarTraslado);
+        footerPanel.add(bConsultar);
+        footerPanel.add(bModificar);
+        footerPanel.add(bVerTodo);
+        footerPanel.add(bExportar);
+
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
     }
 
-    // -----------------------------------------------------------------------
-    // --- LÓGICA DE TABLA (CARGAR Y EVENTO) ---
-    // -----------------------------------------------------------------------
+    private JPanel crearPanelFormulario() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(COLOR_AZUL),
+                "Datos del Traslado",
+                TitledBorder.DEFAULT_JUSTIFICATION,
+                TitledBorder.DEFAULT_POSITION,
+                FONT_BOLD,
+                COLOR_AZUL));
 
-    /** Cargar tabla de traslados recientes */
-    private void cargarTablaTraslados() {
-        try {
-            List<Movimiento> traslados = movimientoControl.obtenerTraslados(); 
-            
-            String[] columnas = {"ID", "Artículo", "Cantidad", "Origen", "Destino", "Entregado Por", "Fecha/Hora"};
-            
-            DefaultTableModel nuevoModel = new DefaultTableModel(columnas, 0) {
-                @Override
-                public Class<?> getColumnClass(int columnIndex) {
-                    if (columnIndex == 0) return Long.class;      // ID (Long)
-                    if (columnIndex == 2) return Integer.class;   // Cantidad (Integer)
-                    return Object.class;
-                }
-                @Override
-                public boolean isCellEditable(int row, int column) {
-                    return false;
-                }
-            };
-            
-            // Asumiendo que la tabla se llama jTable1
-            jTableTraslado.setModel(nuevoModel);
-            // Ocultar la columna del ID (Columna 0)
-            jTableTraslado.getColumnModel().getColumn(0).setMinWidth(0);
-            jTableTraslado.getColumnModel().getColumn(0).setMaxWidth(0);
-            jTableTraslado.getColumnModel().getColumn(0).setWidth(0);
-            
-            for (Movimiento m : traslados) {
-                nuevoModel.addRow(new Object[]{
-                    m.getIdMovimiento(), // ID en la columna 0
-                    m.getNombreArticulo(),
-                    m.getCantidad(),
-                    m.getNombreUbicacionOrigen(),
-                    m.getNombreUbicacionDestino(),
-                    m.getEntregado(), 
-                    m.getFechaHora()
-                });
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error cargando tabla de traslados: " + e.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(10, 5, 10, 5);
+        g.anchor = GridBagConstraints.WEST;
+        g.fill = GridBagConstraints.HORIZONTAL;
+
+        // Inicialización componentes
+        jCBArticuloTraslado = new JComboBox<>();
+        jFTCantidad = new JFormattedTextField();
+        jCBUbicacionOrigen = new JComboBox<>();
+        jCBUbicacionDestino = new JComboBox<>();
+        jFTEntregadoA = new JFormattedTextField();
+
+        // Fila 0: Artículo
+        addLabelAndField(p, "Artículo:", jCBArticuloTraslado, 0, g);
+        // Fila 1: Cantidad
+        addLabelAndField(p, "Cantidad:", jFTCantidad, 1, g);
+        // Fila 2: Origen
+        addLabelAndField(p, "Ubicación Origen:", jCBUbicacionOrigen, 2, g);
+        // Fila 3: Destino
+        addLabelAndField(p, "Ubicación Destino:", jCBUbicacionDestino, 3, g);
+        // Fila 4: Entregado A
+        addLabelAndField(p, "Entregado a:", jFTEntregadoA, 4, g);
+
+        // Espaciador final
+        g.gridy = 5; g.weighty = 1.0;
+        p.add(new JLabel(), g);
+
+        return p;
     }
-    
-    /** Configura el evento de clic en la tabla para cargar el formulario. */
-    private void configurarEventoTabla() {
+
+    private void addLabelAndField(JPanel p, String labelText, JComponent field, int row, GridBagConstraints g) {
+        g.gridx = 0; g.gridy = row; g.weightx = 0.0;
+        JLabel l = new JLabel(labelText);
+        l.setFont(FONT_PLAIN);
+        p.add(l, g);
+
+        g.gridx = 1; g.weightx = 1.0;
+        field.setPreferredSize(new Dimension(150, 30));
+        p.add(field, g);
+    }
+
+    private JPanel crearPanelTabla() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(COLOR_AZUL), "Historial de Traslados"));
+
+        jTableTraslado = new JTable();
+        jTableTraslado.setRowHeight(25);
+        jTableTraslado.getTableHeader().setBackground(COLOR_AZUL);
+        jTableTraslado.getTableHeader().setForeground(Color.WHITE);
+        jTableTraslado.getTableHeader().setFont(FONT_BOLD);
+
+        JScrollPane scroll = new JScrollPane(jTableTraslado);
+        p.add(scroll, BorderLayout.CENTER);
+
+        return p;
+    }
+
+    private JButton crearBotonHeader(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(this::bVolverActionPerformed);
+        return btn;
+    }
+
+    private JButton crearBotonAccion(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setPreferredSize(new Dimension(140, 40));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        switch (texto) {
+            case "Registrar": btn.addActionListener(e -> onRegistrarTraslado()); break;
+            case "Consultar": btn.addActionListener(this::bConsultarActionPerformed); break;
+            case "Modificar": btn.addActionListener(this::bModificarActionPerformed); break;
+            case "Ver Todo": btn.addActionListener(this::bVerTodoActionPerformed); break;
+            case "Exportar": btn.addActionListener(this::bExportarActionPerformed); break;
+        }
+        return btn;
+    }
+
+    // ========================================================================
+    // === LÓGICA DE NEGOCIO (Preservada) ===
+    // ========================================================================
+
+    private void configurarEventos() {
         jTableTraslado.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -218,45 +280,320 @@ public class PanelTraslado extends javax.swing.JFrame {
         });
     }
 
-    /** ⭐ NUEVO MÉTODO: Carga los datos de la fila seleccionada de la tabla al formulario. ⭐ */
+    private void cargarCombos() {
+        try {
+            // Artículos
+            DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
+            for (Articulo a : articulos) modeloArticulos.addElement(a);
+            jCBArticuloTraslado.setModel(modeloArticulos);
+
+            // Ubicaciones
+            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
+            DefaultComboBoxModel<Ubicacion> modeloUbicOrigen = new DefaultComboBoxModel<>();
+            DefaultComboBoxModel<Ubicacion> modeloUbicDestino = new DefaultComboBoxModel<>();
+
+            for (Ubicacion u : ubicaciones) {
+                modeloUbicOrigen.addElement(u);
+                modeloUbicDestino.addElement(u);
+            }
+
+            jCBUbicacionOrigen.setModel(modeloUbicOrigen);
+            jCBUbicacionDestino.setModel(modeloUbicDestino);
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error cargando datos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onRegistrarTraslado() {
+        try {
+            Articulo art = (Articulo) jCBArticuloTraslado.getSelectedItem();
+            Ubicacion origen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
+            Ubicacion destino = (Ubicacion) jCBUbicacionDestino.getSelectedItem();
+            int cantidad = parseIntSafe(jFTCantidad.getText());
+            String entregadoA = jFTEntregadoA.getText().trim();
+
+            if (art == null || origen == null || destino == null) {
+                JOptionPane.showMessageDialog(this, "Selecciona artículo, ubicación origen y destino.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (origen.getId_ubicacion() == destino.getId_ubicacion()) {
+                JOptionPane.showMessageDialog(this, "La ubicación origen y destino no pueden ser la misma.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (cantidad <= 0) {
+                JOptionPane.showMessageDialog(this, "Cantidad inválida (>0).", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Ubicacion uDestino = ubicacionDAO.obtenerPorId(destino.getId_ubicacion());
+            if (uDestino == null) {
+                JOptionPane.showMessageDialog(this, "Error: Ubicación de destino no encontrada.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            double volumenArticulo = art.getAltura() * art.getAnchura() * art.getProfundidad();
+            double volumenTotal = volumenArticulo * cantidad;
+
+            if (uDestino.getCapacidadRestante() < volumenTotal) {
+                JOptionPane.showMessageDialog(this, "No hay suficiente espacio en la ubicación destino.\nCapacidad restante: " + uDestino.getCapacidadRestante() + " m³", "Capacidad insuficiente", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            boolean ok = movimientoControl.registrarTraslado(
+                    art.getIdArticulo(),
+                    cantidad,
+                    origen.getId_ubicacion(),
+                    destino.getId_ubicacion(),
+                    entregadoA
+            );
+
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Traslado registrado correctamente.", "OK", JOptionPane.INFORMATION_MESSAGE);
+                jFTCantidad.setText("");
+                jFTEntregadoA.setText("");
+                cargarTablaTraslados();
+            } else {
+                JOptionPane.showMessageDialog(this, "No se pudo registrar el traslado.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error SQL: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error en la Operación", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+    private void cargarTablaTraslados() {
+        try {
+            List<Movimiento> traslados = movimientoControl.obtenerTraslados();
+            String[] columnas = {"ID", "Artículo", "Cantidad", "Origen", "Destino", "Entregado Por", "Fecha/Hora"};
+
+            modeloTabla = new DefaultTableModel(columnas, 0) {
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    if (columnIndex == 0) return Long.class;
+                    if (columnIndex == 2) return Integer.class;
+                    return Object.class;
+                }
+
+                @Override
+                public boolean isCellEditable(int row, int column) { return false; }
+            };
+
+            jTableTraslado.setModel(modeloTabla);
+            jTableTraslado.getColumnModel().getColumn(0).setMinWidth(0);
+            jTableTraslado.getColumnModel().getColumn(0).setMaxWidth(0);
+            jTableTraslado.getColumnModel().getColumn(0).setWidth(0);
+
+            for (Movimiento m : traslados) {
+                modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(),
+                    m.getNombreArticulo(),
+                    m.getCantidad(),
+                    m.getNombreUbicacionOrigen(),
+                    m.getNombreUbicacionDestino(),
+                    m.getEntregado(),
+                    m.getFechaHora()
+                });
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error cargando tabla: " + e.getMessage());
+        }
+    }
+
     private void cargarFormularioDesdeTablas() {
         int fila = jTableTraslado.getSelectedRow();
         if (fila >= 0) {
-            DefaultTableModel model = (DefaultTableModel) jTableTraslado.getModel();
+            Object idObj = modeloTabla.getValueAt(fila, 0);
+            if (idObj instanceof Integer) this.idMovimientoSeleccionado = ((Integer) idObj).longValue();
+            else if (idObj instanceof Long) this.idMovimientoSeleccionado = (Long) idObj;
 
-            // 1. Obtener el ID del movimiento (Columna 0) y manejar Integer/Long
-            Object idObj = model.getValueAt(fila, 0);
-            Long idMov = null;
-            if (idObj instanceof Integer) {
-                idMov = ((Integer) idObj).longValue();
-            } else if (idObj instanceof Long) {
-                idMov = (Long) idObj;
-            }
-            this.idMovimientoSeleccionado = idMov;
-            
-            // 2. Obtener nombres de Artículo y Ubicaciones
-            String nombreArticulo = (String) model.getValueAt(fila, 1);
-            String nombreUbicacionOrigen = (String) model.getValueAt(fila, 3);
-            String nombreUbicacionDestino = (String) model.getValueAt(fila, 4);
-            
-            // 3. Cantidad y Entregado
-            jFTCantidad.setText(model.getValueAt(fila, 2).toString());
-            jFTEntregadoA.setText((String) model.getValueAt(fila, 5));
+            String nombreArticulo = (String) modeloTabla.getValueAt(fila, 1);
+            String nombreUbicacionOrigen = (String) modeloTabla.getValueAt(fila, 3);
+            String nombreUbicacionDestino = (String) modeloTabla.getValueAt(fila, 4);
 
-            // 4. Seleccionar en Comboboxes
+            jFTCantidad.setText(modeloTabla.getValueAt(fila, 2).toString());
+            jFTEntregadoA.setText((String) modeloTabla.getValueAt(fila, 5));
+
             seleccionarEnComboBox(jCBArticuloTraslado, nombreArticulo);
             seleccionarEnComboBox(jCBUbicacionOrigen, nombreUbicacionOrigen);
             seleccionarEnComboBox(jCBUbicacionDestino, nombreUbicacionDestino);
         }
     }
-    
-    /** Método auxiliar para seleccionar un ítem por su nombre en un JComboBox */
+
+    private void bModificarActionPerformed(ActionEvent evt) {
+        if (this.idMovimientoSeleccionado == null) {
+            JOptionPane.showMessageDialog(this, "Seleccione un traslado de la tabla para modificar.");
+            return;
+        }
+
+        try {
+            int idMovimiento = this.idMovimientoSeleccionado.intValue();
+            Articulo articulo = (Articulo) jCBArticuloTraslado.getSelectedItem();
+            Ubicacion origen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
+            Ubicacion destino = (Ubicacion) jCBUbicacionDestino.getSelectedItem();
+            int cantidad = parseIntSafe(jFTCantidad.getText());
+
+            if (articulo == null || origen == null || destino == null || cantidad <= 0) {
+                JOptionPane.showMessageDialog(this, "Datos obligatorios inválidos.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (Objects.equals(origen.getId_ubicacion(), destino.getId_ubicacion())) {
+                JOptionPane.showMessageDialog(this, "La ubicación origen y destino no pueden ser la misma.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            String entregadoA = jFTEntregadoA.getText().trim();
+
+            boolean ok = movimientoControl.actualizarTraslado(
+                    idMovimiento,
+                    articulo.getIdArticulo(),
+                    cantidad,
+                    origen.getId_ubicacion(),
+                    destino.getId_ubicacion(),
+                    entregadoA
+            );
+
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Traslado modificado correctamente.");
+                cargarTablaTraslados();
+                this.idMovimientoSeleccionado = null;
+            } else {
+                JOptionPane.showMessageDialog(this, "No se pudo modificar el traslado.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+
+        } catch (CapacidadInsuficienteException e) {
+            JOptionPane.showMessageDialog(this, String.format("Capacidad excedida en destino.\nRestante: %.3f m³", e.getCapacidadRestante()), "Capacidad Insuficiente", JOptionPane.WARNING_MESSAGE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al modificar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void bConsultarActionPerformed(ActionEvent evt) {
+        try {
+            modeloTabla.setRowCount(0);
+            Articulo articulo = (Articulo) jCBArticuloTraslado.getSelectedItem();
+            Ubicacion ubicacion = (Ubicacion) jCBUbicacionDestino.getSelectedItem();
+
+            Integer idArticulo = (articulo != null) ? articulo.getIdArticulo() : null;
+            Integer idUbicacion = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
+
+            List<Movimiento> lista = movimientoControl.buscarTraslados(idArticulo, idUbicacion);
+
+            if (lista.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No se encontraron traslados con esos filtros.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            for (Movimiento m : lista) {
+                modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionOrigen(), m.getNombreUbicacionDestino(),
+                    m.getEntregado(), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al consultar: " + e.getMessage());
+        }
+    }
+
+    private void bVerTodoActionPerformed(ActionEvent evt) {
+        try {
+            jCBArticuloTraslado.setSelectedItem(null);
+            jCBUbicacionDestino.setSelectedItem(null);
+
+            List<Movimiento> lista = movimientoControl.buscarTraslados(null, null);
+            modeloTabla.setRowCount(0);
+
+            for (Movimiento m : lista) {
+                modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
+                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                    (m.getEntregado() != null ? m.getEntregado() : "-"), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void bExportarActionPerformed(ActionEvent evt) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Guardar Reporte de Traslados");
+        fileChooser.setSelectedFile(new File("Reporte_Traslados.pdf"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getAbsolutePath().endsWith(".pdf")) fileToSave = new File(fileToSave.getAbsolutePath() + ".pdf");
+
+            Document document = new Document();
+            try {
+                PdfWriter.getInstance(document, new FileOutputStream(fileToSave));
+                document.open();
+
+                Paragraph title = new Paragraph("Reporte de Traslados de Inventario", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, BaseColor.BLACK));
+                title.setAlignment(Paragraph.ALIGN_CENTER);
+                title.setSpacingAfter(20);
+                document.add(title);
+
+                int colCount = jTableTraslado.getColumnCount();
+                int visibleColCount = colCount - 1; 
+                PdfPTable pdfTable = new PdfPTable(visibleColCount);
+                pdfTable.setWidthPercentage(100);
+
+                com.itextpdf.text.Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.WHITE);
+                BaseColor headerColor = new BaseColor(155, 89, 182);
+
+                for (int i = 1; i < colCount; i++) {
+                    PdfPCell cell = new PdfPCell(new Phrase(jTableTraslado.getColumnName(i), fontHeader));
+                    cell.setBackgroundColor(headerColor);
+                    cell.setHorizontalAlignment(PdfPCell.ALIGN_CENTER);
+                    pdfTable.addCell(cell);
+                }
+
+                com.itextpdf.text.Font fontData = FontFactory.getFont(FontFactory.HELVETICA, 9, BaseColor.BLACK);
+                for (int rows = 0; rows < jTableTraslado.getRowCount(); rows++) {
+                    for (int cols = 1; cols < colCount; cols++) {
+                        Object value = jTableTraslado.getValueAt(rows, cols);
+                        PdfPCell cell = new PdfPCell(new Phrase(value != null ? value.toString() : "", fontData));
+                        pdfTable.addCell(cell);
+                    }
+                }
+
+                document.add(pdfTable);
+                JOptionPane.showMessageDialog(this, "Reporte exportado exitosamente.");
+
+            } catch (DocumentException | FileNotFoundException ex) {
+                Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, null, ex);
+                JOptionPane.showMessageDialog(this, "Error al exportar: " + ex.getMessage());
+            } finally {
+                if (document.isOpen()) document.close();
+            }
+        }
+    }
+
+    private void bVolverActionPerformed(ActionEvent evt) {
+        this.dispose();
+        new PrincipalVista(this.usuarioActual).setVisible(true);
+    }
+
+    // --- Utilidades ---
     private <T> void seleccionarEnComboBox(JComboBox<T> combo, String nombre) {
         if (nombre == null) return;
         DefaultComboBoxModel<T> model = (DefaultComboBoxModel<T>) combo.getModel();
         for (int i = 0; i < model.getSize(); i++) {
             T item = model.getElementAt(i);
-            // Asume que el método toString() del objeto (Articulo/Ubicacion) devuelve el nombre
             if (item != null && item.toString().equals(nombre)) {
                 combo.setSelectedItem(item);
                 return;
@@ -265,494 +602,6 @@ public class PanelTraslado extends javax.swing.JFrame {
     }
 
     private int parseIntSafe(String s) {
-        try {
-            return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim());
-        } catch (Exception e) {
-            return 0;
-        }
+        try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); } catch (Exception e) { return 0; }
     }
-
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        jPanel1 = new javax.swing.JPanel();
-        jPanel2 = new javax.swing.JPanel();
-        jPanel3 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
-        bVolver = new javax.swing.JButton();
-        jPanel4 = new javax.swing.JPanel();
-        jLabel3 = new javax.swing.JLabel();
-        jArticulo = new javax.swing.JLabel();
-        jCBUbicacionDestino = new javax.swing.JComboBox<>();
-        jEntregadoA = new javax.swing.JLabel();
-        jUbicacionDestino = new javax.swing.JLabel();
-        jFTEntregadoA = new javax.swing.JFormattedTextField();
-        jCBArticuloTraslado = new javax.swing.JComboBox<>();
-        jUbicacionOrigen1 = new javax.swing.JLabel();
-        jCBUbicacionOrigen = new javax.swing.JComboBox<>();
-        jCantidad1 = new javax.swing.JLabel();
-        jFTCantidad = new javax.swing.JFormattedTextField();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        jTableTraslado = new javax.swing.JTable();
-        jPanel5 = new javax.swing.JPanel();
-        bRegistrarTraslado = new javax.swing.JButton();
-        bConsultar = new javax.swing.JButton();
-        bVerTodo = new javax.swing.JButton();
-        bModificar = new javax.swing.JButton();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        jPanel1.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel2.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel2.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel3.setBackground(new java.awt.Color(13, 51, 131));
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-
-        jPanel2.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 116, 1367, -1));
-
-        jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Traslado de Bienes Mobiliarios");
-        jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(6, 0, 790, 80));
-
-        jButton1.setBackground(new java.awt.Color(13, 51, 131));
-        jButton1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton1.setForeground(new java.awt.Color(255, 255, 255));
-        jButton1.setText("Registrar");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton1, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton4.setBackground(new java.awt.Color(13, 51, 131));
-        jButton4.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton4.setForeground(new java.awt.Color(255, 255, 255));
-        jButton4.setText("Registrar");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton4, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton5.setBackground(new java.awt.Color(13, 51, 131));
-        jButton5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton5.setForeground(new java.awt.Color(255, 255, 255));
-        jButton5.setText("Registrar");
-        jButton5.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton5ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton5, new org.netbeans.lib.awtextra.AbsoluteConstraints(40, 330, 170, 40));
-
-        bVolver.setBackground(new java.awt.Color(13, 51, 131));
-        bVolver.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVolver.setForeground(new java.awt.Color(255, 255, 255));
-        bVolver.setText("Volver");
-        bVolver.setBorder(null);
-        bVolver.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVolverActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bVolver, new org.netbeans.lib.awtextra.AbsoluteConstraints(630, 0, 170, 70));
-
-        jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 800, 80));
-
-        jPanel4.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
-        jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("Traslado");
-        jPanel4.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 350, 57));
-
-        jArticulo.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jArticulo.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jArticulo.setText("Artículo:");
-        jPanel4.add(jArticulo, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 50, 160, 51));
-
-        jCBUbicacionDestino.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCBUbicacionDestinoActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jCBUbicacionDestino, new org.netbeans.lib.awtextra.AbsoluteConstraints(170, 270, 170, 48));
-
-        jEntregadoA.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jEntregadoA.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jEntregadoA.setText("Entragado a:");
-        jPanel4.add(jEntregadoA, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 340, 160, 51));
-
-        jUbicacionDestino.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jUbicacionDestino.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jUbicacionDestino.setText("Ubicación Destino:");
-        jPanel4.add(jUbicacionDestino, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 270, 160, 51));
-
-        jFTEntregadoA.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTEntregadoAActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTEntregadoA, new org.netbeans.lib.awtextra.AbsoluteConstraints(170, 340, 170, 50));
-
-        jPanel4.add(jCBArticuloTraslado, new org.netbeans.lib.awtextra.AbsoluteConstraints(170, 50, 170, 48));
-
-        jUbicacionOrigen1.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jUbicacionOrigen1.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jUbicacionOrigen1.setText("Ubicación Origen:");
-        jPanel4.add(jUbicacionOrigen1, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 190, 160, 51));
-
-        jCBUbicacionOrigen.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCBUbicacionOrigenActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jCBUbicacionOrigen, new org.netbeans.lib.awtextra.AbsoluteConstraints(170, 190, 170, 48));
-
-        jCantidad1.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jCantidad1.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jCantidad1.setText("Cantidad:");
-        jPanel4.add(jCantidad1, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 110, 160, 51));
-
-        jFTCantidad.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTCantidadActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTCantidad, new org.netbeans.lib.awtextra.AbsoluteConstraints(170, 110, 170, 50));
-
-        jTableTraslado.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null}
-            },
-            new String [] {
-                "Articulo", "Cantidad", "Origen", "Destino", "Entregado a", "Fecha"
-            }
-        ));
-        jScrollPane1.setViewportView(jTableTraslado);
-
-        jPanel4.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 0, -1, 400));
-
-        jPanel5.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel5.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 80, 5));
-
-        bRegistrarTraslado.setBackground(new java.awt.Color(13, 51, 131));
-        bRegistrarTraslado.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bRegistrarTraslado.setForeground(new java.awt.Color(255, 255, 255));
-        bRegistrarTraslado.setText("Registrar");
-        bRegistrarTraslado.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bRegistrarTrasladoActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bRegistrarTraslado);
-
-        bConsultar.setBackground(new java.awt.Color(13, 51, 131));
-        bConsultar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bConsultar.setForeground(new java.awt.Color(255, 255, 255));
-        bConsultar.setText("Consultar");
-        bConsultar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bConsultarActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bConsultar);
-
-        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
-        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
-        bVerTodo.setText("Ver todo");
-        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVerTodoActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bVerTodo);
-
-        bModificar.setBackground(new java.awt.Color(13, 51, 131));
-        bModificar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bModificar.setForeground(new java.awt.Color(255, 255, 255));
-        bModificar.setText("Modificar");
-        bModificar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bModificarActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bModificar);
-
-        jPanel4.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 410, 800, 50));
-
-        jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 80, 800, 460));
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void jFTEntregadoAActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTEntregadoAActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTEntregadoAActionPerformed
-
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton1ActionPerformed
-
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton4ActionPerformed
-
-    private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton5ActionPerformed
-
-    private void bVolverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVolverActionPerformed
-        // TODO add your handling code here:
-        this.dispose();
-        // Pasa el usuario de vuelta al menú principal
-        new PrincipalVista(this.usuarioActual).setVisible(true);
-    }//GEN-LAST:event_bVolverActionPerformed
-
-    private void jCBUbicacionDestinoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBUbicacionDestinoActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCBUbicacionDestinoActionPerformed
-
-    private void bRegistrarTrasladoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bRegistrarTrasladoActionPerformed
-        
-    }//GEN-LAST:event_bRegistrarTrasladoActionPerformed
-
-    private void jCBUbicacionOrigenActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBUbicacionOrigenActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCBUbicacionOrigenActionPerformed
-
-    private void jFTCantidadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTCantidadActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTCantidadActionPerformed
-
-    private void bConsultarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bConsultarActionPerformed
-        // TODO add your handling code here:
-    try {
-        DefaultTableModel model = (DefaultTableModel) jTableTraslado.getModel(); // Usar la tabla de Traslado
-        model.setRowCount(0);
-
-        // 1. Obtener filtros
-        Articulo articulo = (Articulo) jCBArticuloTraslado.getSelectedItem();
-        // ⭐ Corregir aquí: Usar el nombre de JComboBox correcto para la ubicación de traslado
-        Ubicacion ubicacion = (Ubicacion) jCBUbicacionDestino.getSelectedItem(); 
-
-        // Extraer IDs
-        Integer idArticulo = (articulo != null) ? articulo.getIdArticulo() : null;
-        Integer idUbicacion = (ubicacion != null) ? ubicacion.getId_ubicacion() : null; // Usa .getIdUbicacion()
-        
-        // 2. Llamada al controlador para buscar TRASLADOS
-        List<Movimiento> lista = movimientoControl.buscarTraslados(idArticulo, idUbicacion);
-
-        if (lista.isEmpty()) {
-            String msg = "No se encontraron traslados.\n\nFiltros aplicados:\n";
-            msg += "Artículo: " + (articulo != null ? articulo.getNombre() : "TODOS") + "\n";
-            msg += "Ubicación de Destino: " + (ubicacion != null ? ubicacion.getNombre() : "TODAS") + "\n\n";
-            msg += "¿Estás seguro de que existe un TRASLADO con esta combinación de filtros?";
-            
-            JOptionPane.showMessageDialog(this, msg, "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        // 3. Llenar la tabla
-        for (Movimiento m : lista) {
-            // Nota: Los traslados generalmente no tienen costo ni fecha de vencimiento,
-            // pero si los tienes en la tabla, el código debe mapearlos.
-            model.addRow(new Object[]{
-                m.getIdMovimiento(), 
-                m.getNombreArticulo(),
-                m.getCantidad(),
-                m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-", // Origen
-                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-", // Destino
-                (m.getEntregado() != null ? m.getEntregado() : "-"),
-                m.getFechaHora()
-            });
-        }
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al consultar traslados: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-    }//GEN-LAST:event_bConsultarActionPerformed
-
-    private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
-        // TODO add your handling code here:
-        try {
-        // 1. Limpiar la selección de los ComboBoxes (para enviar null al DAO)
-        // Usamos los nombres de componentes que identificamos en la consulta:
-        jCBArticuloTraslado.setSelectedItem(null); 
-        jCBUbicacionDestino.setSelectedItem(null);
-
-        // 2. Llamar al método de consulta con filtros nulos (que es equivalente a listar todo)
-        // Se asume que 'movimientoControl' es la instancia correcta del controlador.
-        List<Movimiento> lista = movimientoControl.buscarTraslados(null, null);
-
-        // 3. Limpiar la tabla y cargar la lista completa
-        DefaultTableModel model = (DefaultTableModel) jTableTraslado.getModel(); // Asegúrate de usar jTableTraslado
-        model.setRowCount(0);
-
-        for (Movimiento m : lista) {
-            // Lógica para llenar la fila, similar a tu método de consulta de Traslado
-            model.addRow(new Object[]{
-                m.getIdMovimiento(), 
-                m.getNombreArticulo(),
-                m.getCantidad(),
-                m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
-                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-                (m.getEntregado() != null ? m.getEntregado() : "-"),
-                m.getFechaHora()
-            });
-        }
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al cargar todos los traslados: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-    }//GEN-LAST:event_bVerTodoActionPerformed
-
-    private void bModificarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bModificarActionPerformed
-        // TODO add your handling code here:
-        if (this.idMovimientoSeleccionado == null) {
-        JOptionPane.showMessageDialog(this, "Seleccione un traslado de la tabla para modificar.");
-        return;
-    }
-
-    try {
-        // 1. Obtener ID del movimiento seleccionado
-        int idMovimiento = this.idMovimientoSeleccionado.intValue();
-        
-        // 2. RECOLECCIÓN Y VALIDACIÓN DE DATOS
-        Articulo articulo = (Articulo) jCBArticuloTraslado.getSelectedItem();
-        Ubicacion origen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
-        Ubicacion destino = (Ubicacion) jCBUbicacionDestino.getSelectedItem();
-        int cantidad = parseIntSafe(jFTCantidad.getText()); // Campo de Cantidad
-
-        // Validación básica
-        if (articulo == null || origen == null || destino == null || cantidad <= 0) {
-            JOptionPane.showMessageDialog(this, 
-                "Artículo, Ubicación Origen, Ubicación Destino y Cantidad (>0) son obligatorios.",
-                "Validación", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        // Validación Origen != Destino
-        if (Objects.equals(origen.getId_ubicacion(), destino.getId_ubicacion())) {
-            JOptionPane.showMessageDialog(this, 
-                "La ubicación origen y destino no pueden ser la misma para un traslado.",
-                "Validación", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        String entregadoA = jFTEntregadoA.getText().trim(); // Campo Entregado A
-
-        // 3. LLAMADA AL CONTROLADOR
-        // ⭐ REQUIERE implementar boolean actualizarTraslado(...) en MovimientoControlador ⭐
-        boolean ok = movimientoControl.actualizarTraslado(
-            idMovimiento,
-            articulo.getIdArticulo(),
-            cantidad,
-            origen.getId_ubicacion(),
-            destino.getId_ubicacion(),
-            entregadoA
-        );
-
-        // 4. MANEJO DE RESPUESTA
-        if (ok) {
-            JOptionPane.showMessageDialog(this, "Traslado modificado correctamente.");
-            // Asumo que tu método para cargar la tabla de traslados se llama cargarTablaTraslados()
-            cargarTablaTraslados(); 
-            // Limpiar ID de selección
-            this.idMovimientoSeleccionado = null; 
-        } else {
-            JOptionPane.showMessageDialog(this, "No se pudo modificar el traslado.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-    } catch (CapacidadInsuficienteException e) {
-        // Manejo de excepción de capacidad para el DESTINO
-        JOptionPane.showMessageDialog(this, 
-            String.format("La modificación excede la capacidad de la ubicación destino (%s).\n" +
-                          "Restante: %.3f m³ | Requerido: %.3f m³", 
-                          e.getNombreUbicacion(), e.getCapacidadRestante(), e.getEspacioRequerido()),
-            "Capacidad Insuficiente", JOptionPane.WARNING_MESSAGE);
-            
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al intentar modificar el traslado: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-    }//GEN-LAST:event_bModificarActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton bConsultar;
-    private javax.swing.JButton bModificar;
-    private javax.swing.JButton bRegistrarTraslado;
-    private javax.swing.JButton bVerTodo;
-    private javax.swing.JButton bVolver;
-    private javax.swing.JLabel jArticulo;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JComboBox<Modelo.Articulo> jCBArticuloTraslado;
-    private javax.swing.JComboBox<Modelo.Ubicacion> jCBUbicacionDestino;
-    private javax.swing.JComboBox<Modelo.Ubicacion> jCBUbicacionOrigen;
-    private javax.swing.JLabel jCantidad1;
-    private javax.swing.JLabel jEntregadoA;
-    private javax.swing.JFormattedTextField jFTCantidad;
-    private javax.swing.JFormattedTextField jFTEntregadoA;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTable jTableTraslado;
-    private javax.swing.JLabel jUbicacionDestino;
-    private javax.swing.JLabel jUbicacionOrigen1;
-    // End of variables declaration//GEN-END:variables
 }

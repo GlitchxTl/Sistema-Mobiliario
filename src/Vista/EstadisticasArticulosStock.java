@@ -1,305 +1,205 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package Vista;
 
-import Modelo.EstadisticasDAO;
-import Modelo.Usuario; 
 import Modelo.DatoGrafico;
+import Modelo.EstadisticasDAO;
+import Modelo.Usuario;
 import util.GeneradorGraficos;
-import java.awt.BorderLayout;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.util.List;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
 import org.jfree.chart.ChartPanel;
 
-public class EstadisticasArticulosStock extends javax.swing.JFrame {
+public class EstadisticasArticulosStock extends JFrame {
 
     private final EstadisticasDAO dao = new EstadisticasDAO();
     private final GeneradorGraficos generador = new GeneradorGraficos();
-    private Usuario usuarioActual; 
+    private Usuario usuarioActual;
     
-    // Variable para guardar el gráfico actual y poder exportarlo luego
-    private ChartPanel panelGraficoActual;
+    // Componentes UI
+    private JPanel pnlGraficoContainer; // El panel dentro del Scroll
+    private ChartPanel panelGraficoActual; // El gráfico JFreeChart
+    private JButton bCargar, bExportar, bVolver;
+
+    // Constantes de Estilo
+    private final Color COLOR_AZUL = new Color(13, 51, 131);
+    private final Font FONT_TITLE = new Font("Segoe UI Black", Font.BOLD, 18);
+    private final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
 
     public EstadisticasArticulosStock(Usuario usuario) {
-        initComponents(); // Generado por NetBeans
-        this.setResizable(false);
-        this.usuarioActual = usuario; 
-        // Eventos
-        bCargar.addActionListener(e -> cargarGrafico());
-        bExportar.addActionListener(e -> exportarGrafico());
+        this.usuarioActual = usuario;
+        
+        // Configuración de la Ventana
+        setTitle("Estadísticas de Stock de Artículos");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1000, 700);
+        setMinimumSize(new Dimension(800, 600));
+        setLocationRelativeTo(null); // Centrar
+
+        initUI();
     }
 
-   private void cargarGrafico() {
+    // Constructor vacío
+    public EstadisticasArticulosStock() {
+        this(null);
+    }
 
-    System.out.println("--- Iniciando cargarGrafico() ---");
+    private void initUI() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Color.WHITE);
+        setContentPane(mainPanel);
 
-    
+        // ==========================================
+        // 1. HEADER (NORTE)
+        // ==========================================
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(COLOR_AZUL);
+        headerPanel.setPreferredSize(new Dimension(getWidth(), 60));
+        headerPanel.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-    try {
+        JLabel lblTitle = new JLabel("Estadísticas: Cantidad de Bienes Mobiliarios", SwingConstants.CENTER);
+        lblTitle.setFont(FONT_TITLE);
+        lblTitle.setForeground(Color.WHITE);
 
-        List<DatoGrafico> datos = dao.obtenerTopStock(9999, true); // Si pasas 0, traes todos
+        bVolver = createHeaderButton("Volver");
 
+        headerPanel.add(lblTitle, BorderLayout.CENTER);
+        headerPanel.add(bVolver, BorderLayout.EAST);
+
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+
+        // ==========================================
+        // 2. ZONA DE GRÁFICO CON SCROLL (CENTRO)
+        // ==========================================
+        // Creamos un panel contenedor que irá DENTRO del ScrollPane.
+        // Este panel crecerá dinámicamente según la altura del gráfico.
+        pnlGraficoContainer = new JPanel(new BorderLayout());
+        pnlGraficoContainer.setBackground(Color.WHITE);
+
+        JScrollPane scrollPane = new JScrollPane(pnlGraficoContainer);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16); // Scroll más rápido
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+        // ==========================================
+        // 3. FOOTER CON CONTROLES (SUR)
+        // ==========================================
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        footerPanel.setBackground(Color.WHITE);
+
+        bCargar = createActionButton("Cargar Gráfico");
+        bExportar = createActionButton("Exportar a PDF");
+
+        footerPanel.add(bCargar);
+        footerPanel.add(bExportar);
+
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
+    }
+
+    private JButton createHeaderButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(e -> bVolverActionPerformed());
+        return btn;
+    }
+
+    private JButton createActionButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btn.setFocusPainted(false);
+        btn.setPreferredSize(new Dimension(200, 50));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
-
-        System.out.println("Datos obtenidos: " + datos.size());
-
-        
-
-        if (datos.isEmpty()) {
-
-            JOptionPane.showMessageDialog(this, "No hay datos para mostrar.");
-
-            return;
-
+        if (text.equals("Cargar Gráfico")) {
+            btn.addActionListener(e -> cargarGrafico());
+        } else {
+            btn.addActionListener(e -> exportarGrafico());
         }
-
-        
-
-        // --- 1. Calcular la altura dinámica del gráfico ---
-
-        // Asumimos 30 píxeles por artículo + un margen para el título/ejes
-
-        final int ALTURA_ESTANDAR = 350; // Altura mínima de inicio
-
-        final int PIXELES_POR_BARRA = 30; 
-
-        
-
-        int alturaCalculada = Math.max(
-
-            ALTURA_ESTANDAR, // Altura mínima
-
-            (datos.size() * PIXELES_POR_BARRA) + 100 // Altura dinámica
-
-        );
-
-
-
-        // 2. Generar el panel del gráfico
-
-        System.out.println("Generando gráfico...");
-
-        panelGraficoActual = generador.crearGraficoBarras(datos, "Estadística de las cantidades de Bienes Mobiliarios");
-
-
-
-        // Establecer el tamaño preferido del panel del gráfico
-
-        panelGraficoActual.setPreferredSize(new java.awt.Dimension(
-
-            pnlContenedor.getWidth(), // Mantener el ancho del contenedor padre
-
-            alturaCalculada // Usar la altura dinámica calculada
-
-        ));
-
-
-
-        // 3. Mostrar en el JPanel INTERNO (dentro del JScrollPane)
-
-        System.out.println("Agregando al panel interno...");
-
-        
-
-        // El contenedor del gráfico ahora es el pnlGraficoInterno
-
-        pnlGraficoInterno.removeAll(); 
-
-        pnlGraficoInterno.setLayout(new BorderLayout()); // Asegurar que el panel interno use BorderLayout
-
-        pnlGraficoInterno.add(panelGraficoActual, BorderLayout.CENTER);
-
-        
-
-        // 4. Refrescar el scroll y los contenedores
-
-        pnlGraficoInterno.revalidate();
-
-        pnlGraficoInterno.repaint();
-
-        jScrollGrafico.revalidate(); // Refrescar el scroll para que calcule las barras
-
-        
-
-        System.out.println("--- Gráfico cargado con scroll ---");
-
-        
-
-    } catch (Exception e) {
-
-        System.err.println("EXCEPCIÓN EN CARGAR GRAFICO:");
-
-        e.printStackTrace();
-
-        JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
-
+        return btn;
     }
 
+    // ==========================================
+    // === LÓGICA DEL GRÁFICO ===
+    // ==========================================
 
-}
+    private void cargarGrafico() {
+        try {
+            // 1. Obtener datos
+            List<DatoGrafico> datos = dao.obtenerTopStock(9999, true);
+
+            if (datos.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No hay datos para mostrar.");
+                return;
+            }
+
+            // 2. Calcular Altura Dinámica
+            final int ALTURA_ESTANDAR = 400;
+            final int PIXELES_POR_BARRA = 30;
+            int alturaCalculada = Math.max(ALTURA_ESTANDAR, (datos.size() * PIXELES_POR_BARRA) + 100);
+
+            // 3. Generar Gráfico
+            panelGraficoActual = generador.crearGraficoBarras(datos, "Existencia Actual por Artículo");
+            
+            // 4. Configurar Tamaño
+            // IMPORTANTE: Seteamos el tamaño preferido del ChartPanel para forzar al JScrollPane a mostrar barra
+            panelGraficoActual.setPreferredSize(new Dimension(pnlGraficoContainer.getWidth() - 20, alturaCalculada));
+
+            // 5. Agregar al contenedor
+            pnlGraficoContainer.removeAll();
+            pnlGraficoContainer.add(panelGraficoActual, BorderLayout.CENTER);
+            
+            // 6. Refrescar UI
+            pnlGraficoContainer.revalidate();
+            pnlGraficoContainer.repaint();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al cargar gráfico: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
     private void exportarGrafico() {
         if (panelGraficoActual == null) {
-            JOptionPane.showMessageDialog(this, "Primero carga un gráfico.");
+            JOptionPane.showMessageDialog(this, "Primero carga un gráfico para poder exportarlo.", "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         JFileChooser ch = new JFileChooser();
+        ch.setDialogTitle("Guardar Gráfico como PDF");
+        ch.setSelectedFile(new File("Reporte_Stock_Grafico.pdf"));
+
         if (ch.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 File archivo = ch.getSelectedFile();
-                // Asegurar extensión .pdf
                 if (!archivo.getName().endsWith(".pdf")) {
                     archivo = new File(archivo.getAbsolutePath() + ".pdf");
                 }
-                
+
                 generador.exportarPDF(panelGraficoActual, archivo);
                 JOptionPane.showMessageDialog(this, "PDF guardado exitosamente.");
-                
+
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error exportando: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Error exportando: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 ex.printStackTrace();
             }
         }
     }
-    
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        jPanel1 = new javax.swing.JPanel();
-        pnlContenedor = new javax.swing.JPanel();
-        pnlGraficoInterno = new javax.swing.JPanel();
-        jScrollGrafico = new javax.swing.JScrollBar();
-        pnlControles = new javax.swing.JPanel();
-        bCargar = new javax.swing.JToggleButton();
-        bExportar = new javax.swing.JToggleButton();
-        bVolver = new javax.swing.JToggleButton();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        jPanel1.setBackground(new java.awt.Color(255, 255, 255));
-
-        pnlContenedor.setBackground(new java.awt.Color(255, 255, 255));
-        pnlContenedor.setLayout(new java.awt.BorderLayout());
-
-        pnlGraficoInterno.setBackground(new java.awt.Color(255, 255, 255));
-
-        javax.swing.GroupLayout pnlGraficoInternoLayout = new javax.swing.GroupLayout(pnlGraficoInterno);
-        pnlGraficoInterno.setLayout(pnlGraficoInternoLayout);
-        pnlGraficoInternoLayout.setHorizontalGroup(
-            pnlGraficoInternoLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-        pnlGraficoInternoLayout.setVerticalGroup(
-            pnlGraficoInternoLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 421, Short.MAX_VALUE)
-        );
-
-        pnlContenedor.add(pnlGraficoInterno, java.awt.BorderLayout.LINE_END);
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(pnlContenedor, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollGrafico, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollGrafico, javax.swing.GroupLayout.PREFERRED_SIZE, 421, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(pnlContenedor, javax.swing.GroupLayout.PREFERRED_SIZE, 421, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
-        );
-
-        pnlControles.setBackground(new java.awt.Color(255, 255, 255));
-        pnlControles.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 100, 5));
-
-        bCargar.setBackground(new java.awt.Color(13, 51, 131));
-        bCargar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bCargar.setForeground(new java.awt.Color(255, 255, 255));
-        bCargar.setText("Cargar Gráfico");
-        bCargar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bCargarActionPerformed(evt);
-            }
-        });
-        pnlControles.add(bCargar);
-
-        bExportar.setBackground(new java.awt.Color(13, 51, 131));
-        bExportar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bExportar.setForeground(new java.awt.Color(255, 255, 255));
-        bExportar.setText("Exportar a PDF");
-        pnlControles.add(bExportar);
-
-        bVolver.setBackground(new java.awt.Color(13, 51, 131));
-        bVolver.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVolver.setForeground(new java.awt.Color(255, 255, 255));
-        bVolver.setText("Volver");
-        bVolver.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVolverActionPerformed(evt);
-            }
-        });
-        pnlControles.add(bVolver);
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(pnlControles, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 421, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(pnlControles, javax.swing.GroupLayout.PREFERRED_SIZE, 78, javax.swing.GroupLayout.PREFERRED_SIZE))
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void bCargarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bCargarActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_bCargarActionPerformed
-
-    private void bVolverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVolverActionPerformed
-        // TODO add your handling code here:
+    private void bVolverActionPerformed() {
         this.dispose();
-        // Pasa el usuario de vuelta al menú principal
         new PanelEstadistica(this.usuarioActual).setVisible(true);
-    }//GEN-LAST:event_bVolverActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JToggleButton bCargar;
-    private javax.swing.JToggleButton bExportar;
-    private javax.swing.JToggleButton bVolver;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JScrollBar jScrollGrafico;
-    private javax.swing.JPanel pnlContenedor;
-    private javax.swing.JPanel pnlControles;
-    private javax.swing.JPanel pnlGraficoInterno;
-    // End of variables declaration//GEN-END:variables
+    }
 }

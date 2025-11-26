@@ -3,359 +3,332 @@ package Vista;
 import Controlador.ArticuloControlador;
 import Controlador.MovimientoControlador;
 import Modelo.Articulo;
-import Modelo.Usuario;
+import Modelo.CapacidadInsuficienteException;
 import Modelo.Movimiento;
 import Modelo.Ubicacion;
 import Modelo.UbicacionDAO;
+import Modelo.Usuario;
+import util.GestorBcv;
+
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.FontFactory;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+import com.toedter.calendar.JDateChooser; // Asegúrate de tener la librería JCalendar
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
-import Modelo.CapacidadInsuficienteException;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.Calendar;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class PanelEntrada extends javax.swing.JFrame {
+public class PanelEntrada extends JFrame {
 
+    // --- Componentes de la UI ---
+    private JComboBox<Articulo> jCBArticuloEntrada;
+    private JFormattedTextField jFTCantidadEntrada;
+    private JComboBox<Ubicacion> jCBUbicacionEntrada;
+    private JFormattedTextField jFTEntregadoA;
+    private JCheckBox jCheckBoxDonado;
+    private JLabel jLabelCostoDivisa;
+    private JTextField jTFCostoDivisa;
+    private JCheckBox jCheckBoxVencimiento;
+    private JLabel jLabelVencimiento;
+    private JDateChooser jDateVencimiento;
+    private JTable jTable1;
+    private DefaultTableModel modeloTabla;
+
+    // Botones
+    private JButton bRegistrarEntrada, bConsultar, bModificar, bVerTodo, bExportar, bVolver;
+
+    // --- Variables de Control ---
     private final ArticuloControlador articuloControl = new ArticuloControlador();
     private final MovimientoControlador movimientoControl = new MovimientoControlador();
     private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
     private Usuario usuarioActual;
-    private Long idMovimientoSeleccionado = null; 
+    private Long idMovimientoSeleccionado = null;
+    
+    // Constantes de Diseño
+    private final Color COLOR_AZUL = new Color(13, 51, 131);
+    private final Font FONT_TITLE = new Font("Segoe UI Black", Font.BOLD, 18);
+    private final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
+    private final Font FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 14);
 
     // Constructor que recibe el usuario
     public PanelEntrada(Usuario usuario) {
-        initComponents();
-        this.setResizable(false);
         this.usuarioActual = usuario;
         
-        // ⭐ AJUSTE: Ocultar bModificar si no es Administrador ⭐
-        ocultarBotones(); 
+        // Configuración de la Ventana
+        setTitle("Entrada de Bienes Mobiliarios");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1100, 720);
+        setMinimumSize(new Dimension(950, 650));
+        setLocationRelativeTo(null);
         
+        // Inicializar UI y Lógica
+        initUI();
         cargarCombos();
         cargarTablaMovimientos();
-        configurarEventosCheckboxes();
-        bRegistrarEntrada.addActionListener(e -> onRegistrarEntrada());
-        configurarEventoTabla();
+        configurarLogica(); // Listeners y visibilidad inicial
+        
+        // Permisos
+        if (usuarioActual != null && !"Administrador".equals(usuarioActual.getRol())) {
+            bModificar.setVisible(false);
+        }
     }
-    
+
     // Constructor vacío
     public PanelEntrada() {
         this(null);
     }
-    
-    // -----------------------------------------------------------------------
-    // --- LÓGICA DE VISIBILIDAD DEL BOTÓN MODIFICAR ---
-    // -----------------------------------------------------------------------
-    
-    private void ocultarBotones() {
-        // Si el usuario no es 'Administrador', el botón de Modificar se oculta.
-        // Se asume que existe un componente llamado 'bModificar'.
-        if (usuarioActual != null && !"Administrador".equals(usuarioActual.getRol())) {
-            bModificar.setVisible(false);
-            
-        }
+
+    private void initUI() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Color.WHITE);
+        setContentPane(mainPanel);
+
+        // ==========================================
+        // 1. HEADER (NORTE)
+        // ==========================================
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(COLOR_AZUL);
+        headerPanel.setPreferredSize(new Dimension(getWidth(), 60));
+        headerPanel.setBorder(new EmptyBorder(0, 20, 0, 20));
+
+        JLabel lblTitulo = new JLabel("Entrada de Bienes Mobiliarios", SwingConstants.CENTER);
+        lblTitulo.setFont(FONT_TITLE);
+        lblTitulo.setForeground(Color.WHITE);
+
+        bVolver = crearBotonHeader("Volver");
+
+        headerPanel.add(lblTitulo, BorderLayout.CENTER);
+        headerPanel.add(bVolver, BorderLayout.EAST);
+
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+
+        // ==========================================
+        // 2. CONTENIDO CENTRAL (CENTRO)
+        // ==========================================
+        JPanel centerPanel = new JPanel(new GridBagLayout());
+        centerPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+
+        // --- Panel Formulario (Izquierda) ---
+        JPanel formPanel = crearPanelFormulario();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0.35; // 35% del ancho
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 20, 10, 10);
+        centerPanel.add(formPanel, gbc);
+
+        // --- Panel Tabla (Derecha) ---
+        JPanel tablePanel = crearPanelTabla();
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 0.65; // 65% del ancho
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 0, 10, 20);
+        centerPanel.add(tablePanel, gbc);
+
+        mainPanel.add(centerPanel, BorderLayout.CENTER);
+
+        // ==========================================
+        // 3. FOOTER BOTONES (SUR)
+        // ==========================================
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+        footerPanel.setBackground(Color.WHITE);
+
+        bRegistrarEntrada = crearBotonAccion("Registrar");
+        bConsultar = crearBotonAccion("Consultar");
+        bModificar = crearBotonAccion("Modificar");
+        bVerTodo = crearBotonAccion("Ver Todo");
+        bExportar = crearBotonAccion("Exportar");
+
+        footerPanel.add(bRegistrarEntrada);
+        footerPanel.add(bConsultar);
+        footerPanel.add(bModificar);
+        footerPanel.add(bVerTodo);
+        footerPanel.add(bExportar);
+
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
     }
 
-    /** Configura la lógica para mostrar/ocultar campos según checkboxes */
-    private void configurarEventosCheckboxes() {
+    private JPanel crearPanelFormulario() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(COLOR_AZUL), 
+                "Datos de Entrada", 
+                TitledBorder.DEFAULT_JUSTIFICATION, 
+                TitledBorder.DEFAULT_POSITION, 
+                FONT_BOLD, 
+                COLOR_AZUL));
+
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(8, 5, 8, 5);
+        g.anchor = GridBagConstraints.WEST;
+        g.fill = GridBagConstraints.HORIZONTAL;
+
+        // Inicialización componentes formulario
+        jCBArticuloEntrada = new JComboBox<>();
+        jFTCantidadEntrada = new JFormattedTextField();
+        jCBUbicacionEntrada = new JComboBox<>();
+        jFTEntregadoA = new JFormattedTextField();
+        jCheckBoxDonado = new JCheckBox("Marcar si es donado");
+        jCheckBoxDonado.setBackground(Color.WHITE);
+        jCheckBoxDonado.setFont(FONT_PLAIN);
+        jLabelCostoDivisa = new JLabel("Costo ($):");
+        jLabelCostoDivisa.setFont(FONT_PLAIN);
+        jTFCostoDivisa = new JTextField();
+        jCheckBoxVencimiento = new JCheckBox("¿Se puede vencer?");
+        jCheckBoxVencimiento.setBackground(Color.WHITE);
+        jCheckBoxVencimiento.setFont(FONT_PLAIN);
+        jLabelVencimiento = new JLabel("Fecha Vencimiento:");
+        jLabelVencimiento.setFont(FONT_PLAIN);
+        jDateVencimiento = new JDateChooser();
+
+        // Fila 0: Artículo
+        addLabelAndField(p, "Artículo:", jCBArticuloEntrada, 0, g);
+        // Fila 1: Cantidad
+        addLabelAndField(p, "Cantidad:", jFTCantidadEntrada, 1, g);
+        // Fila 2: Ubicación
+        addLabelAndField(p, "Ubicación:", jCBUbicacionEntrada, 2, g);
+        // Fila 3: Entregado a
+        addLabelAndField(p, "Entregado a:", jFTEntregadoA, 3, g);
+        
+        // Fila 4: Separador y Check Donado
+        g.gridx = 0; g.gridy = 4; g.gridwidth = 2;
+        p.add(new JSeparator(), g);
+        g.gridy = 5;
+        p.add(jCheckBoxDonado, g);
+        g.gridwidth = 1;
+
+        // Fila 6: Costo (Label y Field)
+        addLabelAndField(p, jLabelCostoDivisa, jTFCostoDivisa, 6, g);
+
+        // Fila 7: Separador y Check Vencimiento
+        g.gridx = 0; g.gridy = 7; g.gridwidth = 2;
+        p.add(new JSeparator(), g);
+        g.gridy = 8;
+        p.add(jCheckBoxVencimiento, g);
+        g.gridwidth = 1;
+
+        // Fila 9: Fecha Vencimiento
+        addLabelAndField(p, jLabelVencimiento, jDateVencimiento, 9, g);
+
+        // Espaciador final
+        g.gridy = 10; g.weighty = 1.0;
+        p.add(new JLabel(), g);
+
+        return p;
+    }
+
+    private void addLabelAndField(JPanel p, Object label, JComponent field, int row, GridBagConstraints g) {
+        g.gridx = 0; g.gridy = row; g.weightx = 0.0;
+        if (label instanceof String) {
+            JLabel l = new JLabel((String) label);
+            l.setFont(FONT_PLAIN);
+            p.add(l, g);
+        } else {
+            p.add((Component) label, g);
+        }
+
+        g.gridx = 1; g.weightx = 1.0;
+        field.setPreferredSize(new Dimension(150, 30));
+        p.add(field, g);
+    }
+
+    private JPanel crearPanelTabla() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(COLOR_AZUL), "Registro de Movimientos"));
+
+        jTable1 = new JTable();
+        jTable1.setRowHeight(25);
+        jTable1.getTableHeader().setBackground(COLOR_AZUL);
+        jTable1.getTableHeader().setForeground(Color.WHITE);
+        jTable1.getTableHeader().setFont(FONT_BOLD);
+
+        JScrollPane scroll = new JScrollPane(jTable1);
+        p.add(scroll, BorderLayout.CENTER);
+
+        return p;
+    }
+
+    private JButton crearBotonHeader(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(this::bVolverActionPerformed);
+        return btn;
+    }
+
+    private JButton crearBotonAccion(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setPreferredSize(new Dimension(140, 40));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        switch (texto) {
+            case "Registrar": btn.addActionListener(e -> onRegistrarEntrada()); break;
+            case "Consultar": btn.addActionListener(this::bConsultarActionPerformed); break;
+            case "Modificar": btn.addActionListener(this::bModificarActionPerformed); break;
+            case "Ver Todo": btn.addActionListener(this::bVerTodoActionPerformed); break;
+            case "Exportar": btn.addActionListener(this::bExportarActionPerformed); break;
+        }
+        return btn;
+    }
+
+    // ========================================================================
+    // === LÓGICA DE NEGOCIO (Preservada del código original) ===
+    // ========================================================================
+
+    private void configurarLogica() {
+        // Eventos Checkboxes
         jCheckBoxDonado.addActionListener(e -> {
             boolean donado = jCheckBoxDonado.isSelected();
-            jLabelCosto.setVisible(!donado);
-            jTFCosto.setVisible(!donado);
+            jLabelCostoDivisa.setVisible(!donado);
+            jTFCostoDivisa.setVisible(!donado);
         });
 
         jCheckBoxVencimiento.addActionListener(e -> {
             boolean vencible = jCheckBoxVencimiento.isSelected();
             jLabelVencimiento.setVisible(vencible);
-            jDateVencimiento.setVisible(vencible); 
+            jDateVencimiento.setVisible(vencible);
         });
 
+        // Visibilidad Inicial
         jLabelVencimiento.setVisible(false);
         jDateVencimiento.setVisible(false);
-    }
-    
-    // -----------------------------------------------------------------------
-    // --- LÓGICA DE CARGA DE COMBOS Y REGISTRO ---
-    // -----------------------------------------------------------------------
-
-    /** Carga los artículos y ubicaciones existentes */
-    private void cargarCombos() {
-        try {
-            // Artículos
-            DefaultComboBoxModel<Articulo> mArticulos = new DefaultComboBoxModel<>();
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
-            for (Articulo a : articulos) mArticulos.addElement(a);
-            jCBArticuloEntrada.setModel(mArticulos);
-
-            // Ubicaciones
-            DefaultComboBoxModel<Ubicacion> mUbicaciones = new DefaultComboBoxModel<>();
-            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
-            for (Ubicacion u : ubicaciones) mUbicaciones.addElement(u);
-            jCBUbicacionEntrada.setModel(mUbicaciones);
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                            "Error cargando datos: " + ex.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    // --- MÉTODO onRegistrarEntrada() (SE MANTIENE IGUAL) ---
-    private void onRegistrarEntrada() {
-
         
-
-        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
-
-        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
-
-        int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
-
-
-
-        try {
-
-            if (articulo == null || ubicacion == null) {
-
-                JOptionPane.showMessageDialog(this,
-
-                        "Selecciona un artículo y una ubicación.",
-
-                        "Validación", JOptionPane.WARNING_MESSAGE);
-
-                return;
-
-            }
-
-            if (cantidad <= 0) {
-
-                JOptionPane.showMessageDialog(this,
-
-                        "La cantidad debe ser mayor que cero.",
-
-                        "Validación", JOptionPane.WARNING_MESSAGE);
-
-                return;
-
-            }
-
-
-
-            Timestamp fechaVencimiento = null;
-
-            if (jCheckBoxVencimiento.isSelected()) {
-
-                Date selectedDate = jDateVencimiento.getDate();
-
-                if (selectedDate == null) {
-
-                    JOptionPane.showMessageDialog(this,
-
-                            "Selecciona una fecha de vencimiento válida.",
-
-                            "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
-
-                    return;
-
-                }
-
-                
-
-                fechaVencimiento = new Timestamp(selectedDate.getTime());
-
-                
-
-                // ⭐ INICIO DE LA SOLUCIÓN 3: Comparar solo por DÍA ⭐
-
-                
-
-                // 1. Poner la hora del vencimiento seleccionado a 00:00:00 (solo para la comparación)
-
-                java.util.Calendar calVencimiento = java.util.Calendar.getInstance();
-
-                calVencimiento.setTime(fechaVencimiento);
-
-                calVencimiento.set(java.util.Calendar.HOUR_OF_DAY, 0);
-
-                calVencimiento.set(java.util.Calendar.MINUTE, 0);
-
-                calVencimiento.set(java.util.Calendar.SECOND, 0);
-
-                calVencimiento.set(java.util.Calendar.MILLISECOND, 0);
-
-
-
-                // 2. Obtener la hora actual y ponerla a 00:00:00 (para representar "Hoy")
-
-                java.util.Calendar calHoy = java.util.Calendar.getInstance();
-
-                calHoy.set(java.util.Calendar.HOUR_OF_DAY, 0);
-
-                calHoy.set(java.util.Calendar.MINUTE, 0);
-
-                calHoy.set(java.util.Calendar.SECOND, 0);
-
-                calHoy.set(java.util.Calendar.MILLISECOND, 0);
-
-                
-
-                // 3. Comparar si el día de vencimiento es ESTRICTAMENTE anterior al día de hoy.
-
-                // Usamos el Calendar modificado para la comparación.
-
-                if (calVencimiento.before(calHoy)) { 
-
-                    JOptionPane.showMessageDialog(this, 
-
-                        "La fecha de vencimiento no puede ser anterior al día de hoy.\n" +
-
-                        "El producto ya está vencido y no puede registrarse.", 
-
-                        "Producto Vencido", JOptionPane.ERROR_MESSAGE);
-
-                    return; 
-
-                }
-            }
-
-            Double costo = null;
-            if (!jCheckBoxDonado.isSelected()) {
-                double costoVal = parseDoubleSafe(jTFCosto.getText());
-                costo = costoVal > 0 ? costoVal : null;
-            }
-
-            boolean ok = movimientoControl.registrarEntrada(
-                articulo.getIdArticulo(),
-                cantidad,
-                ubicacion.getId_ubicacion(),
-                jFTEntregadoA.getText().trim(),
-                jCheckBoxDonado.isSelected(),
-                costo,
-                fechaVencimiento
-            );
-
-            if (ok) {
-                JOptionPane.showMessageDialog(this,
-                        "Entrada registrada correctamente.",
-                        "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                jFTCantidadEntrada.setText("");
-                jFTEntregadoA.setText("");
-                jTFCosto.setText("");
-                jDateVencimiento.setDate(null);
-                cargarTablaMovimientos(); 
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Error desconocido al registrar la entrada.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            }
-
-        } catch (CapacidadInsuficienteException e) {
-            
-            String mensajeError = String.format(
-                "La ubicación '%s' no tiene suficiente capacidad.\n" +
-                "Capacidad restante: %.3f m³\n" +
-                "Espacio requerido:  %.3f m³\n\n",
-                e.getNombreUbicacion(),
-                e.getCapacidadRestante(),
-                e.getEspacioRequerido()
-            );
-
-            List<Ubicacion> sugerencias = e.getSugerencias();
-            if (sugerencias.isEmpty()) {
-                mensajeError += "No se encontraron otras ubicaciones con espacio suficiente.";
-            } else {
-                StringBuilder sb = new StringBuilder();
-                sb.append("Sugerencias (con espacio disponible):\n");
-                for (Ubicacion uSugerida : sugerencias) {
-                    sb.append(String.format("- %s (Restante: %.3f m³)\n",
-                        uSugerida.getNombre(),
-                        uSugerida.getCapacidadRestante()
-                    ));
-                }
-                mensajeError += sb.toString();
-            }
-
-            JOptionPane.showMessageDialog(this,
-                    mensajeError,
-                    "Capacidad Insuficiente",
-                    JOptionPane.WARNING_MESSAGE);
-
-        } catch (SQLException sqe) {
-            JOptionPane.showMessageDialog(this,
-                    "Error SQL: " + sqe.getMessage(),
-                    "Error de Base de Datos", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Error inesperado: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
-        }
-    }
-    
-    // -----------------------------------------------------------------------
-    // --- LÓGICA DE TABLA (CARGAR Y EVENTO) ---
-    // -----------------------------------------------------------------------
-
-    /** Carga los últimos movimientos de tipo ENTRADA en la tabla */
-    private void cargarTablaMovimientos() {
-        try {
-            
-            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación", "Costo", "Vencimiento", "Entregado Por", "Fecha/Hora"};
-            
-            // Creamos un DefaultTableModel que puede manejar la inserción de Long y Timestamp
-            DefaultTableModel nuevoModel = new DefaultTableModel(columnas, 0) {
-                
-                // ⭐ IMPORTANTE: Sobreescribimos getColumnClass para que reconozca los tipos de datos
-                @Override
-                public Class<?> getColumnClass(int columnIndex) {
-                    if (columnIndex == 0) return Long.class;      // ID
-                    if (columnIndex == 2) return Integer.class;   // Cantidad
-                    if (columnIndex == 5) return Timestamp.class; // Vencimiento (requiere Timestamp o null)
-                    return Object.class;
-                }
-
-                @Override
-                public boolean isCellEditable(int row, int column) {
-                    return false;
-                }
-            };
-            
-            jTable1.setModel(nuevoModel);
-            // Ocultar la columna del ID (Columna 0)
-            jTable1.getColumnModel().getColumn(0).setMinWidth(0);
-            jTable1.getColumnModel().getColumn(0).setMaxWidth(0);
-            jTable1.getColumnModel().getColumn(0).setWidth(0);
-
-            var lista = movimientoControl.obtenerEntradas();
-
-            for (Movimiento m : lista) {
-                // ⭐ CORRECCIÓN: Si la fecha de vencimiento es null, insertamos null
-                // Esto previene que el DateRenderer intente formatear el String "-" como fecha.
-                Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
-                
-                nuevoModel.addRow(new Object[]{
-                    m.getIdMovimiento(), 
-                    m.getNombreArticulo(),
-                    m.getCantidad(),
-                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-                    m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
-                    fechaVencimientoParaTabla, // ⬅️ Ahora es Timestamp o null
-                    (m.getEntregado() != null ? m.getEntregado() : "-"),
-                    m.getFechaHora()
-                });
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    
-    private void configurarEventoTabla() {
+        // Evento Tabla
         jTable1.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -366,68 +339,384 @@ public class PanelEntrada extends javax.swing.JFrame {
         });
     }
 
-    /** Carga los datos de la fila seleccionada de la tabla al formulario. */
+    private void cargarCombos() {
+        try {
+            DefaultComboBoxModel<Articulo> mArticulos = new DefaultComboBoxModel<>();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
+            for (Articulo a : articulos) mArticulos.addElement(a);
+            jCBArticuloEntrada.setModel(mArticulos);
+
+            DefaultComboBoxModel<Ubicacion> mUbicaciones = new DefaultComboBoxModel<>();
+            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
+            for (Ubicacion u : ubicaciones) mUbicaciones.addElement(u);
+            jCBUbicacionEntrada.setModel(mUbicaciones);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error cargando datos: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onRegistrarEntrada() {
+        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+        int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
+
+        try {
+            if (articulo == null || ubicacion == null) {
+                JOptionPane.showMessageDialog(this, "Selecciona un artículo y una ubicación.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (cantidad <= 0) {
+                JOptionPane.showMessageDialog(this, "La cantidad debe ser mayor que cero.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Timestamp fechaVencimiento = null;
+            if (jCheckBoxVencimiento.isSelected()) {
+                Date selectedDate = jDateVencimiento.getDate();
+                if (selectedDate == null) {
+                    JOptionPane.showMessageDialog(this, "Selecciona una fecha de vencimiento válida.", "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                fechaVencimiento = new Timestamp(selectedDate.getTime());
+                
+                // Validación fecha anterior a hoy
+                java.util.Calendar calVencimiento = java.util.Calendar.getInstance();
+                calVencimiento.setTime(fechaVencimiento);
+                setMidnight(calVencimiento);
+
+                java.util.Calendar calHoy = java.util.Calendar.getInstance();
+                setMidnight(calHoy);
+
+                if (calVencimiento.before(calHoy)) {
+                    JOptionPane.showMessageDialog(this, "La fecha de vencimiento no puede ser anterior al día de hoy.", "Producto Vencido", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            }
+
+            Double costoDivisa = null;
+            Double costoBolivar = null;
+            if (!jCheckBoxDonado.isSelected()) {
+                double costoVal = parseDoubleSafe(jTFCostoDivisa.getText());
+                if (costoVal > 0) {
+                    costoDivisa = costoVal;
+                    double tasaActual = GestorBcv.getInstance().getTasaActual();
+                    if (tasaActual <= 0) {
+                        JOptionPane.showMessageDialog(this, "No se pudo obtener la tasa de cambio actual.", "Error de Tasa", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    costoBolivar = costoDivisa * tasaActual;
+                }
+            }
+
+            boolean ok = movimientoControl.registrarEntrada(
+                articulo.getIdArticulo(),
+                cantidad,
+                ubicacion.getId_ubicacion(),
+                jFTEntregadoA.getText().trim(),
+                jCheckBoxDonado.isSelected(),
+                costoDivisa,
+                costoBolivar,
+                fechaVencimiento
+            );
+
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Entrada registrada correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                limpiarCampos();
+                cargarTablaMovimientos();
+            } else {
+                JOptionPane.showMessageDialog(this, "Error desconocido al registrar la entrada.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+
+        } catch (CapacidadInsuficienteException e) {
+            manejarExcepcionCapacidad(e);
+        } catch (SQLException sqe) {
+            JOptionPane.showMessageDialog(this, "Error SQL: " + sqe.getMessage(), "Error de BD", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error inesperado: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+    private void cargarTablaMovimientos() {
+        try {
+            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación", "Costo $", "Costo bs", "Vencimiento", "Entregado Por", "Fecha/Hora"};
+            
+            modeloTabla = new DefaultTableModel(columnas, 0) {
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    if (columnIndex == 0) return Long.class;
+                    if (columnIndex == 2) return Integer.class;
+                    if (columnIndex == 6) return Timestamp.class;
+                    return Object.class;
+                }
+                @Override
+                public boolean isCellEditable(int row, int column) { return false; }
+            };
+
+            jTable1.setModel(modeloTabla);
+            // Ocultar ID
+            jTable1.getColumnModel().getColumn(0).setMinWidth(0);
+            jTable1.getColumnModel().getColumn(0).setMaxWidth(0);
+            jTable1.getColumnModel().getColumn(0).setWidth(0);
+
+            var lista = movimientoControl.obtenerEntradas();
+
+            for (Movimiento m : lista) {
+                Object fechaVenc = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+                Object costoDiv = m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-";
+                double costoBsVal = m.getCostoBs();
+                Object costoBs = (costoBsVal > 0) ? String.format("%.2f", costoBsVal) : "-";
+
+                modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                    costoDiv, costoBs, fechaVenc,
+                    (m.getEntregado() != null ? m.getEntregado() : "-"),
+                    m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void cargarFormularioDesdeTablas() {
         int fila = jTable1.getSelectedRow();
         if (fila >= 0) {
-            DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
+            // ID
+            Object idObj = modeloTabla.getValueAt(fila, 0);
+            if (idObj instanceof Integer) this.idMovimientoSeleccionado = ((Integer) idObj).longValue();
+            else if (idObj instanceof Long) this.idMovimientoSeleccionado = (Long) idObj;
 
-            // 1. Obtener el ID del movimiento (Columna 0)
-            // ⭐ CORRECCIÓN DE CLASSCASTEXCEPTION: Manejar Integer/Long de forma segura
-            Object idObj = model.getValueAt(fila, 0);
-            Long idMov = null;
-            if (idObj instanceof Integer) {
-                idMov = ((Integer) idObj).longValue();
-            } else if (idObj instanceof Long) {
-                idMov = (Long) idObj;
-            }
-            this.idMovimientoSeleccionado = idMov;
-            
-            // 2. Obtener los nombres de Artículo y Ubicación
-            String nombreArticulo = (String) model.getValueAt(fila, 1);
-            String nombreUbicacion = (String) model.getValueAt(fila, 3);
-            
-            // 3. Cantidad y Entregado
-            jFTCantidadEntrada.setText(model.getValueAt(fila, 2).toString());
-            jFTEntregadoA.setText((String) model.getValueAt(fila, 6));
+            // Datos básicos
+            String nombreArticulo = (String) modeloTabla.getValueAt(fila, 1);
+            String nombreUbicacion = (String) modeloTabla.getValueAt(fila, 3);
+            jFTCantidadEntrada.setText(modeloTabla.getValueAt(fila, 2).toString());
+            jFTEntregadoA.setText((String) modeloTabla.getValueAt(fila, 7));
 
-            // 4. Costo y Donado
-            // El costo en la tabla ahora es un String ("XX.XX" o "-")
-            String costoStr = (String) model.getValueAt(fila, 4); 
-            boolean esDonado = costoStr.equals("-");
+            // Costos
+            String costoDivisaStr = (String) modeloTabla.getValueAt(fila, 4);
+            boolean esDonado = costoDivisaStr.equals("-");
             jCheckBoxDonado.setSelected(esDonado);
-            jTFCosto.setText(esDonado ? "" : costoStr);
-            jTFCosto.setVisible(!esDonado);
-            jLabelCosto.setVisible(!esDonado);
+            jTFCostoDivisa.setText(esDonado ? "" : costoDivisaStr);
+            jTFCostoDivisa.setVisible(!esDonado);
+            jLabelCostoDivisa.setVisible(!esDonado);
 
-            // 5. Vencimiento
-            // ⭐ CORRECCIÓN: La tabla ahora contiene Timestamp o null
-            Object vencimientoObj = model.getValueAt(fila, 5); 
+            // Vencimiento
+            Object vencimientoObj = modeloTabla.getValueAt(fila, 6);
             boolean tieneVencimiento = (vencimientoObj instanceof Timestamp);
-            
             jCheckBoxVencimiento.setSelected(tieneVencimiento);
             jDateVencimiento.setVisible(tieneVencimiento);
             jLabelVencimiento.setVisible(tieneVencimiento);
-            
-            if (tieneVencimiento) {
-                jDateVencimiento.setDate(new Date(((Timestamp) vencimientoObj).getTime()));
-            } else {
-                jDateVencimiento.setDate(null);
-            }
 
-            // 6. Seleccionar en Combobox
+            if (tieneVencimiento) jDateVencimiento.setDate(new Date(((Timestamp) vencimientoObj).getTime()));
+            else jDateVencimiento.setDate(null);
+
+            // Combos
             seleccionarEnComboBox(jCBArticuloEntrada, nombreArticulo);
             seleccionarEnComboBox(jCBUbicacionEntrada, nombreUbicacion);
         }
     }
-    
-    /** Método auxiliar para seleccionar un ítem por su nombre en un JComboBox */
+
+    private void bModificarActionPerformed(ActionEvent evt) {
+        int fila = jTable1.getSelectedRow();
+        if (fila < 0) {
+            JOptionPane.showMessageDialog(this, "Seleccione un movimiento de entrada para modificar.");
+            return;
+        }
+
+        try {
+            int idMovimiento = Integer.parseInt(jTable1.getModel().getValueAt(fila, 0).toString());
+            Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+            Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+            int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
+
+            if (articulo == null || ubicacion == null || cantidad <= 0) {
+                JOptionPane.showMessageDialog(this, "Datos obligatorios inválidos.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Timestamp fechaVencimiento = null;
+            if (jCheckBoxVencimiento.isSelected()) {
+                Date selectedDate = jDateVencimiento.getDate();
+                if (selectedDate == null) {
+                    JOptionPane.showMessageDialog(this, "Selecciona una fecha válida.", "Validación", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                fechaVencimiento = new Timestamp(selectedDate.getTime());
+            }
+
+            Double costoDivisa = null;
+            Double costoBolivar = null;
+            if (!jCheckBoxDonado.isSelected()) {
+                double costoDivisaVal = parseDoubleSafe(jTFCostoDivisa.getText());
+                if (costoDivisaVal > 0) {
+                    costoDivisa = costoDivisaVal;
+                    double tasaActual = GestorBcv.getInstance().getTasaActual();
+                    if (tasaActual <= 0) {
+                        JOptionPane.showMessageDialog(this, "Error al obtener tasa BCV.", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    costoBolivar = costoDivisa * tasaActual;
+                }
+            }
+
+            boolean ok = movimientoControl.actualizarEntrada(
+                idMovimiento, articulo.getIdArticulo(), cantidad, ubicacion.getId_ubicacion(),
+                jFTEntregadoA.getText().trim(), jCheckBoxDonado.isSelected(),
+                costoDivisa, costoBolivar, fechaVencimiento
+            );
+
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Entrada modificada correctamente.");
+                cargarTablaMovimientos();
+            } else {
+                JOptionPane.showMessageDialog(this, "No se pudo modificar la entrada.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (CapacidadInsuficienteException e) {
+            JOptionPane.showMessageDialog(this, String.format("Capacidad excedida.\nRestante: %.3f m³", e.getCapacidadRestante()), "Error", JOptionPane.WARNING_MESSAGE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al modificar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void bConsultarActionPerformed(ActionEvent evt) {
+        try {
+            modeloTabla.setRowCount(0);
+            Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
+            Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
+            Integer idArt = (articulo != null) ? articulo.getIdArticulo() : null;
+            Integer idUbi = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
+
+            List<Movimiento> lista = movimientoControl.buscarEntradas(idArt, idUbi);
+
+            if (lista.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No se encontraron resultados para los filtros seleccionados.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            for (Movimiento m : lista) {
+                Object fechaVenc = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+                String cDiv = m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-";
+                String cBs = m.getCostoBolivar() != null ? String.format("%.2f", m.getCostoBolivar()) : "-";
+                
+                modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                    cDiv, cBs, fechaVenc,
+                    (m.getEntregado() != null ? m.getEntregado() : "-"), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error al consultar: " + e.getMessage());
+        }
+    }
+
+    private void bVerTodoActionPerformed(ActionEvent evt) {
+        try {
+            jCBArticuloEntrada.setSelectedItem(null);
+            jCBUbicacionEntrada.setSelectedItem(null);
+            List<Movimiento> lista = movimientoControl.buscarEntradas(null, null);
+            modeloTabla.setRowCount(0);
+            for (Movimiento m : lista) {
+                 Object fechaVenc = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
+                 modeloTabla.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                    m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
+                    m.getCostoBolivar() != null ? String.format("%.2f", m.getCostoBolivar()) : "-",
+                    fechaVenc, (m.getEntregado() != null ? m.getEntregado() : "-"), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void bExportarActionPerformed(ActionEvent evt) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Guardar Reporte de Entradas");
+        fileChooser.setSelectedFile(new File("Reporte_Entradas.pdf"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getAbsolutePath().endsWith(".pdf")) fileToSave = new File(fileToSave.getAbsolutePath() + ".pdf");
+
+            Document document = new Document();
+            try {
+                PdfWriter.getInstance(document, new FileOutputStream(fileToSave));
+                document.open();
+
+                Paragraph title = new Paragraph("Reporte de Entradas de Inventario", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, BaseColor.BLACK));
+                title.setAlignment(Paragraph.ALIGN_CENTER);
+                title.setSpacingAfter(20);
+                document.add(title);
+
+                int colCount = jTable1.getColumnCount();
+                int visibleColCount = colCount - 1; // Ignorar ID
+                PdfPTable pdfTable = new PdfPTable(visibleColCount);
+                pdfTable.setWidthPercentage(100);
+
+                com.itextpdf.text.Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.WHITE);
+                BaseColor headerColor = new BaseColor(155, 89, 182);
+
+                for (int i = 1; i < colCount; i++) {
+                    PdfPCell cell = new PdfPCell(new Phrase(jTable1.getColumnName(i), fontHeader));
+                    cell.setBackgroundColor(headerColor);
+                    cell.setHorizontalAlignment(PdfPCell.ALIGN_CENTER);
+                    pdfTable.addCell(cell);
+                }
+
+                com.itextpdf.text.Font fontData = FontFactory.getFont(FontFactory.HELVETICA, 9, BaseColor.BLACK);
+                for (int rows = 0; rows < jTable1.getRowCount(); rows++) {
+                    for (int cols = 1; cols < colCount; cols++) {
+                        Object value = jTable1.getValueAt(rows, cols);
+                        PdfPCell cell = new PdfPCell(new Phrase(value != null ? value.toString() : "", fontData));
+                        pdfTable.addCell(cell);
+                    }
+                }
+
+                document.add(pdfTable);
+                JOptionPane.showMessageDialog(this, "Reporte exportado exitosamente.");
+
+            } catch (DocumentException | FileNotFoundException ex) {
+                Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, null, ex);
+                JOptionPane.showMessageDialog(this, "Error al exportar: " + ex.getMessage());
+            } finally {
+                if (document.isOpen()) document.close();
+            }
+        }
+    }
+
+    private void bVolverActionPerformed(ActionEvent evt) {
+        this.dispose();
+        new PrincipalVista(this.usuarioActual).setVisible(true);
+    }
+
+    // --- Utilidades ---
+    private int parseIntSafe(String s) {
+        try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); } catch (Exception e) { return 0; }
+    }
+
+    private double parseDoubleSafe(String s) {
+        try { return (s == null || s.trim().isEmpty()) ? 0 : Double.parseDouble(s.trim()); } catch (Exception e) { return 0; }
+    }
+
+    private void setMidnight(java.util.Calendar cal) {
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        cal.set(java.util.Calendar.MINUTE, 0);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+    }
+
     private <T> void seleccionarEnComboBox(JComboBox<T> combo, String nombre) {
         if (nombre == null) return;
         DefaultComboBoxModel<T> model = (DefaultComboBoxModel<T>) combo.getModel();
         for (int i = 0; i < model.getSize(); i++) {
             T item = model.getElementAt(i);
-            // Esto asume que el método toString() del objeto Articulo/Ubicacion devuelve el nombre
             if (item != null && item.toString().equals(nombre)) {
                 combo.setSelectedItem(item);
                 return;
@@ -435,537 +724,20 @@ public class PanelEntrada extends javax.swing.JFrame {
         }
     }
 
-    // --- MÉTODOS AUXILIARES ---
-    private int parseIntSafe(String s) {
-        try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); }
-        catch (Exception e) { return 0; }
-    }
-    
-    private double parseDoubleSafe(String s) {
-        try { return (s == null || s.trim().isEmpty()) ? 0 : Double.parseDouble(s.trim()); }
-        catch (Exception e) { return 0; }
+    private void limpiarCampos() {
+        jFTCantidadEntrada.setText("");
+        jFTEntregadoA.setText("");
+        jTFCostoDivisa.setText("");
+        jDateVencimiento.setDate(null);
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        jPanel1 = new javax.swing.JPanel();
-        jPanel2 = new javax.swing.JPanel();
-        jPanel3 = new javax.swing.JPanel();
-        jLabelTitulo = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
-        bVolver = new javax.swing.JButton();
-        jPanel4 = new javax.swing.JPanel();
-        jLabel3 = new javax.swing.JLabel();
-        jLabel15 = new javax.swing.JLabel();
-        jCBUbicacionEntrada = new javax.swing.JComboBox<>();
-        jLabel16 = new javax.swing.JLabel();
-        jLabel17 = new javax.swing.JLabel();
-        jFTCantidadEntrada = new javax.swing.JFormattedTextField();
-        jCBArticuloEntrada = new javax.swing.JComboBox<>();
-        jLabel2 = new javax.swing.JLabel();
-        jFTEntregadoA = new javax.swing.JFormattedTextField();
-        jCheckBoxVencimiento = new javax.swing.JCheckBox();
-        jCheckBoxDonado = new javax.swing.JCheckBox();
-        jLabelVencimiento = new javax.swing.JLabel();
-        jLabelCosto = new javax.swing.JLabel();
-        jTFCosto = new javax.swing.JTextField();
-        jDateVencimiento = new com.toedter.calendar.JDateChooser();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        jTable1 = new javax.swing.JTable();
-        jPanel5 = new javax.swing.JPanel();
-        bRegistrarEntrada = new javax.swing.JButton();
-        bConsultar = new javax.swing.JButton();
-        bModificar = new javax.swing.JButton();
-        bVerTodo = new javax.swing.JButton();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        jPanel1.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel2.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel2.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel3.setBackground(new java.awt.Color(13, 51, 131));
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-
-        jPanel2.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 116, 1367, -1));
-
-        jLabelTitulo.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        jLabelTitulo.setForeground(new java.awt.Color(255, 255, 255));
-        jLabelTitulo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabelTitulo.setText("Entrada de Bienes Mobiliarios");
-        jPanel2.add(jLabelTitulo, new org.netbeans.lib.awtextra.AbsoluteConstraints(6, 0, 792, 60));
-
-        jButton1.setBackground(new java.awt.Color(13, 51, 131));
-        jButton1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton1.setForeground(new java.awt.Color(255, 255, 255));
-        jButton1.setText("Registrar");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton1, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton4.setBackground(new java.awt.Color(13, 51, 131));
-        jButton4.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton4.setForeground(new java.awt.Color(255, 255, 255));
-        jButton4.setText("Registrar");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton4, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton5.setBackground(new java.awt.Color(13, 51, 131));
-        jButton5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton5.setForeground(new java.awt.Color(255, 255, 255));
-        jButton5.setText("Registrar");
-        jButton5.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton5ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton5, new org.netbeans.lib.awtextra.AbsoluteConstraints(40, 330, 170, 40));
-
-        bVolver.setBackground(new java.awt.Color(13, 51, 131));
-        bVolver.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVolver.setForeground(new java.awt.Color(255, 255, 255));
-        bVolver.setText("Volver");
-        bVolver.setBorder(null);
-        bVolver.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVolverActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bVolver, new org.netbeans.lib.awtextra.AbsoluteConstraints(630, 0, 170, 60));
-
-        jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 800, 60));
-
-        jPanel4.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("Entrada");
-        jPanel4.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(1, -2, 350, 40));
-
-        jLabel15.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel15.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel15.setText("Artículo:");
-        jPanel4.add(jLabel15, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 30, 170, 40));
-
-        jCBUbicacionEntrada.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCBUbicacionEntradaActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jCBUbicacionEntrada, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 150, 160, 40));
-
-        jLabel16.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel16.setText("Cantidad:");
-        jPanel4.add(jLabel16, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 90, 170, 30));
-
-        jLabel17.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel17.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel17.setText("Ubicación:");
-        jPanel4.add(jLabel17, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 150, 170, 40));
-
-        jFTCantidadEntrada.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTCantidadEntradaActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTCantidadEntrada, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 90, 160, 30));
-
-        jCBArticuloEntrada.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCBArticuloEntradaActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jCBArticuloEntrada, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 30, 160, 40));
-
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel2.setText("Entregado a:");
-        jPanel4.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 220, 170, 30));
-
-        jFTEntregadoA.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTEntregadoAActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTEntregadoA, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 220, 160, 30));
-
-        jCheckBoxVencimiento.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jCheckBoxVencimiento.setText("¿Se puede vencer?");
-        jPanel4.add(jCheckBoxVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 380, 170, 20));
-
-        jCheckBoxDonado.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jCheckBoxDonado.setText("Marcar si es donado");
-        jCheckBoxDonado.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jCheckBoxDonadoActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jCheckBoxDonado, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 290, 150, 20));
-
-        jLabelVencimiento.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
-        jLabelVencimiento.setText("Fecha de Vencimiento:");
-        jPanel4.add(jLabelVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 400, 170, 30));
-
-        jLabelCosto.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
-        jLabelCosto.setText("Costo (Bs.):");
-        jPanel4.add(jLabelCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 170, 30));
-        jPanel4.add(jTFCosto, new org.netbeans.lib.awtextra.AbsoluteConstraints(180, 310, 160, 30));
-        jPanel4.add(jDateVencimiento, new org.netbeans.lib.awtextra.AbsoluteConstraints(190, 400, 150, 30));
-
-        jTable1.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null}
-            },
-            new String [] {
-                "Articulo", "Cantidad", "Ubicación", "Costo", "Vencimiento", "Entregado", "Fecha"
-            }
-        ));
-        jScrollPane1.setViewportView(jTable1);
-
-        jPanel4.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 0, -1, 430));
-
-        jPanel5.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel5.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 70, 5));
-
-        bRegistrarEntrada.setBackground(new java.awt.Color(13, 51, 131));
-        bRegistrarEntrada.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bRegistrarEntrada.setForeground(new java.awt.Color(255, 255, 255));
-        bRegistrarEntrada.setText("Registrar");
-        bRegistrarEntrada.setMaximumSize(new java.awt.Dimension(120, 32));
-        bRegistrarEntrada.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bRegistrarEntradaActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bRegistrarEntrada);
-
-        bConsultar.setBackground(new java.awt.Color(13, 51, 131));
-        bConsultar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bConsultar.setForeground(new java.awt.Color(255, 255, 255));
-        bConsultar.setText("Consultar");
-        bConsultar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bConsultarActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bConsultar);
-
-        bModificar.setBackground(new java.awt.Color(13, 51, 131));
-        bModificar.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bModificar.setForeground(new java.awt.Color(255, 255, 255));
-        bModificar.setText("Modificar");
-        bModificar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bModificarActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bModificar);
-
-        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
-        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
-        bVerTodo.setText("Ver Todo");
-        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVerTodoActionPerformed(evt);
-            }
-        });
-        jPanel5.add(bVerTodo);
-
-        jPanel4.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 430, 800, 50));
-
-        jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 60, 800, 480));
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 802, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton1ActionPerformed
-
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton4ActionPerformed
-
-    private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton5ActionPerformed
-
-    private void bVolverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVolverActionPerformed
-        // TODO add your handling code here:
-        this.dispose();
-        // Pasa el usuario de vuelta al menú principal
-        new PrincipalVista(this.usuarioActual).setVisible(true);
-    }//GEN-LAST:event_bVolverActionPerformed
-
-    private void bRegistrarEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bRegistrarEntradaActionPerformed
-        
-    }//GEN-LAST:event_bRegistrarEntradaActionPerformed
-
-    private void jCheckBoxDonadoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBoxDonadoActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCheckBoxDonadoActionPerformed
-
-    private void jFTEntregadoAActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTEntregadoAActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTEntregadoAActionPerformed
-
-    private void jCBArticuloEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBArticuloEntradaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCBArticuloEntradaActionPerformed
-
-    private void jFTCantidadEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTCantidadEntradaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTCantidadEntradaActionPerformed
-
-    private void jCBUbicacionEntradaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCBUbicacionEntradaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jCBUbicacionEntradaActionPerformed
-
-    private void bConsultarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bConsultarActionPerformed
-        // TODO add your handling code here:
-        
-    try {
-        DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
-        model.setRowCount(0);
-
-        // 1. Obtener filtros
-        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
-        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
-
-        // Extraer IDs
-        Integer idArticulo = (articulo != null) ? articulo.getIdArticulo() : null;
-        Integer idUbicacion = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
-        
-        // ⭐ IMPORTANTE: Si quieres ver TODO, los combos deben estar sin selección.
-        // Si siempre hay algo seleccionado, SIEMPRE filtrará por esa combinación exacta.
-        
-        // 2. Llamada al controlador (Esto imprimirá el DEBUG en consola gracias al DAO modificado)
-        List<Movimiento> lista = movimientoControl.buscarEntradas(idArticulo, idUbicacion);
-
-        if (lista.isEmpty()) {
-            // Mostramos mensaje detallado para ayudar a entender por qué no hay datos
-            String msg = "No se encontraron resultados.\n\nFiltros aplicados:\n";
-            msg += "Artículo: " + (articulo != null ? articulo.getNombre() : "TODOS") + "\n";
-            msg += "Ubicación: " + (ubicacion != null ? ubicacion.getNombre() : "TODAS") + "\n\n";
-            msg += "¿Estás seguro de que existe una ENTRADA exacta para esta combinación?";
-            
-            JOptionPane.showMessageDialog(this, msg, "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-            return;
+    private void manejarExcepcionCapacidad(CapacidadInsuficienteException e) {
+        String msg = String.format("Capacidad insuficiente en '%s'.\nRestante: %.3f m³\nRequerido: %.3f m³", 
+                e.getNombreUbicacion(), e.getCapacidadRestante(), e.getEspacioRequerido());
+        if (!e.getSugerencias().isEmpty()) {
+            msg += "\n\nSugerencias:";
+            for (Ubicacion u : e.getSugerencias()) msg += String.format("\n- %s (Libre: %.3f m³)", u.getNombre(), u.getCapacidadRestante());
         }
-
-        for (Movimiento m : lista) {
-            Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
-            
-            model.addRow(new Object[]{
-                m.getIdMovimiento(), 
-                m.getNombreArticulo(),
-                m.getCantidad(),
-                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-                m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
-                fechaVencimientoParaTabla, 
-                (m.getEntregado() != null ? m.getEntregado() : "-"),
-                m.getFechaHora()
-            });
-        }
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al consultar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(this, msg, "Error de Capacidad", JOptionPane.WARNING_MESSAGE);
     }
-    }//GEN-LAST:event_bConsultarActionPerformed
-
-    private void bModificarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bModificarActionPerformed
-        // TODO add your handling code here:
-        int fila = jTable1.getSelectedRow();
-    if (fila < 0) {
-        JOptionPane.showMessageDialog(this, "Seleccione un movimiento de entrada para modificar.");
-        return;
-    }
-
-    try {
-        // 1. Obtener ID del movimiento seleccionado
-        int idMovimiento = Integer.parseInt(jTable1.getModel().getValueAt(fila, 0).toString());
-        
-        // 2. RECOLECCIÓN Y VALIDACIÓN DE DATOS
-        Articulo articulo = (Articulo) jCBArticuloEntrada.getSelectedItem();
-        Ubicacion ubicacion = (Ubicacion) jCBUbicacionEntrada.getSelectedItem();
-        int cantidad = parseIntSafe(jFTCantidadEntrada.getText());
-
-        if (articulo == null || ubicacion == null || cantidad <= 0) {
-            JOptionPane.showMessageDialog(this, "Artículo, Ubicación y Cantidad son obligatorios y deben ser válidos.",
-                                          "Validación", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        Timestamp fechaVencimiento = null;
-        if (jCheckBoxVencimiento.isSelected()) {
-            Date selectedDate = jDateVencimiento.getDate();
-            if (selectedDate == null) {
-                 JOptionPane.showMessageDialog(this, "Selecciona una fecha de vencimiento válida.",
-                                              "Validación de Fecha", JOptionPane.WARNING_MESSAGE);
-                 return;
-            }
-            fechaVencimiento = new Timestamp(selectedDate.getTime());
-        }
-
-        Double costo = null;
-        if (!jCheckBoxDonado.isSelected()) {
-            double costoVal = parseDoubleSafe(jTFCosto.getText());
-            costo = costoVal > 0 ? costoVal : null;
-        }
-        
-        // 3. LLAMADA AL CONTROLADOR
-        // ⭐ REQUIERE implementar boolean actualizarEntrada(...) en MovimientoControlador ⭐
-        boolean ok = movimientoControl.actualizarEntrada(
-            idMovimiento,
-            articulo.getIdArticulo(),
-            cantidad,
-            ubicacion.getId_ubicacion(),
-            jFTEntregadoA.getText().trim(),
-            jCheckBoxDonado.isSelected(),
-            costo,
-            fechaVencimiento
-        );
-
-        // 4. MANEJO DE RESPUESTA
-        if (ok) {
-            JOptionPane.showMessageDialog(this, "Entrada modificada correctamente.");
-            cargarTablaMovimientos();
-        } else {
-            JOptionPane.showMessageDialog(this, "No se pudo modificar la entrada.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-    } catch (CapacidadInsuficienteException e) {
-        // Manejo de excepción de capacidad similar al método registrar
-        JOptionPane.showMessageDialog(this, 
-            String.format("La modificación excede la capacidad de la ubicación.\n" +
-                          "Restante: %.3f m³ | Requerido: %.3f m³", 
-                          e.getCapacidadRestante(), e.getEspacioRequerido()),
-            "Capacidad Insuficiente", JOptionPane.WARNING_MESSAGE);
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al intentar modificar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-    }//GEN-LAST:event_bModificarActionPerformed
-
-    private void bModificar1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bModificar1ActionPerformed
-    
-    }//GEN-LAST:event_bModificar1ActionPerformed
-
-    private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
-        // TODO add your handling code here:
-    try {
-        // 1. Limpiar la selección de los ComboBoxes (para enviar null al DAO)
-        jCBArticuloEntrada.setSelectedItem(null); 
-        jCBUbicacionEntrada.setSelectedItem(null);
-
-        // 2. Llamar al método de consulta con filtros nulos (que es equivalente a listar todo)
-        List<Movimiento> lista = movimientoControl.buscarEntradas(null, null);
-
-        // 3. Limpiar la tabla y cargar la lista completa
-        DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
-        model.setRowCount(0);
-
-        for (Movimiento m : lista) {
-            
-            Object fechaVencimientoParaTabla = m.getFechaVencimiento() != null ? m.getFechaVencimiento() : null;
-            
-            model.addRow(new Object[]{
-                m.getIdMovimiento(), 
-                m.getNombreArticulo(),
-                m.getCantidad(),
-                m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-                m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
-                fechaVencimientoParaTabla, 
-                (m.getEntregado() != null ? m.getEntregado() : "-"),
-                m.getFechaHora()
-            });
-        }
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al cargar todos los movimientos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }    
-    }//GEN-LAST:event_bVerTodoActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton bConsultar;
-    private javax.swing.JButton bModificar;
-    private javax.swing.JButton bRegistrarEntrada;
-    private javax.swing.JButton bVerTodo;
-    private javax.swing.JButton bVolver;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JComboBox<Modelo.Articulo> jCBArticuloEntrada;
-    private javax.swing.JComboBox<Modelo.Ubicacion> jCBUbicacionEntrada;
-    private javax.swing.JCheckBox jCheckBoxDonado;
-    private javax.swing.JCheckBox jCheckBoxVencimiento;
-    private com.toedter.calendar.JDateChooser jDateVencimiento;
-    private javax.swing.JFormattedTextField jFTCantidadEntrada;
-    private javax.swing.JFormattedTextField jFTEntregadoA;
-    private javax.swing.JLabel jLabel15;
-    private javax.swing.JLabel jLabel16;
-    private javax.swing.JLabel jLabel17;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabelCosto;
-    private javax.swing.JLabel jLabelTitulo;
-    private javax.swing.JLabel jLabelVencimiento;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTextField jTFCosto;
-    private javax.swing.JTable jTable1;
-    // End of variables declaration//GEN-END:variables
 }

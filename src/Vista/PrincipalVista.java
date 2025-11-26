@@ -1,382 +1,404 @@
 package Vista;
-import Controlador.AuthControlador;
+
+import util.GestorBcv;
+import util.Bcv;
 import Modelo.Usuario;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.GridLayout;
-import java.awt.Point;
-import java.awt.Window;
-import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import javax.swing.JButton;
-import javax.swing.JPanel;
-import javax.swing.JWindow;
-import javax.swing.SwingUtilities;
-import javax.swing.BorderFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PrincipalVista extends javax.swing.JFrame {
-    private Usuario usuarioActual; 
-    private boolean cerrandoPorBoton = false;
+public class PrincipalVista extends JFrame {
     
+    // Propiedades
+    private Usuario usuarioActual;
+    private final AtomicBoolean cerrandoPorBoton = new AtomicBoolean(false); 
+    
+    // Declaración de variables de la UI
+    private JPanel panelPrincipal;
+    private JPanel jPanel2; 
+    private JPanel jPanel3; 
+    private JLabel jLabel1; 
+    private JSeparator jSeparator1;
+    private JButton bArticulos;
+    private JButton bEstadística;
+    private JButton bUbicacion1;
+    private JButton bAuditoría;
+    private JButton bGMovimientos;
+    private JButton jButton1; 
+    private JLabel lblBienvenida;
+    private JLabel iLogo; 
+    private JButton btnCerrarSesion;
+    private JLabel jLabel2; 
+    private JLabel jLabel3; 
+    private JLabel precioBcv;
 
+    // --- CONSTRUCTORES ---
     public PrincipalVista(Usuario usuario) {
+        this.usuarioActual = usuario;
         initComponents();
-        this.setResizable(false);
-        this.usuarioActual = usuario; 
+        cargarPrecioBcvAsync();
+        this.setResizable(true); 
         setLocationRelativeTo(null);
         actualizarBienvenida();
         configurarMenuMovimientos();
-        ajustarLogo();
+        
+        ajustarLogo(); 
+        
+        this.pack();
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
     public PrincipalVista() {
         initComponents();
-        this.setResizable(false);
+        cargarPrecioBcvAsync();
+        this.setResizable(true); 
         setLocationRelativeTo(null);
+        actualizarBienvenida();
         configurarMenuMovimientos();
         ajustarLogo();
+        this.pack();
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
+    
+    // --- MÉTODOS DE LÓGICA ---
 
     private void actualizarBienvenida() {
         lblBienvenida.setText("¡Bienvenido a NotMobi!, " + (usuarioActual != null ? usuarioActual.getNombreUsuario() : ""));
     }
 
-    private void ajustarLogo() {
-    // Ruta de la imagen
-    String ruta = "src/Images/LogoNotMobi.png";
-
-    ImageIcon iconoOriginal = new ImageIcon(ruta);
-    Image imagen = iconoOriginal.getImage();
-
-    // Escalar al tamaño actual del JLabel
-    Image imagenEscalada = imagen.getScaledInstance(
-            iLogo.getWidth(),
-            iLogo.getHeight(),
-            Image.SCALE_SMOOTH
-    );
-
-    iLogo.setIcon(new ImageIcon(imagenEscalada));
-}
-    
-    
-private void configurarMenuMovimientos() {
-    
-    // ==========================================================
-    // ======> EL CAMBIO CLAVE: AtomicBoolean <======
-    //
-    // Esta variable es accesible y MODIFICABLE por ambos listeners.
-    final AtomicBoolean cerrandoPorBoton = new AtomicBoolean(false);
-    // ==========================================================
-    
-    // Ya no es necesario setFocusable(false) en este enfoque, pero lo dejaremos.
-    bGMovimientos.setFocusable(false);
-
-    // --- 1. Crear el Panel que CONTENDRÁ los botones ---
-    JPanel menuPanel = new JPanel();
-    menuPanel.setLayout(new GridLayout(3, 1, 0, 2));
-    menuPanel.setBackground(new java.awt.Color(255, 255, 255));
-    menuPanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-
-    // --- 2. Crear la JWindow que "flotará" ---
-    Window parentWindow = SwingUtilities.getWindowAncestor(bGMovimientos);
-    final JWindow menuWindow = new JWindow(parentWindow);
-
-    // --- 3. Creación y adición de botones (incluyendo setFocusable) ---
-    
-    // ======== BOTÓN ENTRADA ========
-    JButton btnEntrada = new JButton("Entrada");
-    btnEntrada.setBackground(new java.awt.Color(0, 102, 204));
-    btnEntrada.setFont(new java.awt.Font("Segoe UI", 0, 14));
-    btnEntrada.setForeground(Color.WHITE);
-    btnEntrada.setBorder(null);
-    btnEntrada.setPreferredSize(new Dimension(bGMovimientos.getWidth(), 40));
-    btnEntrada.setFocusable(false);
-    btnEntrada.addActionListener(e -> {
-        menuWindow.setVisible(false);
-        // ⭐ ENVÍA EL USUARIO ⭐
-        new PanelEntrada(this.usuarioActual).setVisible(true);
-        this.dispose();
-    });
-    menuPanel.add(btnEntrada);
-
-    // ======== BOTÓN TRASLADO ========
-    JButton btnTraslado = new JButton("Traslado");
-    btnTraslado.setBackground(new java.awt.Color(13, 51, 131));
-    btnTraslado.setFont(new java.awt.Font("Segoe UI", 0, 14));
-    btnTraslado.setForeground(Color.WHITE);
-    btnTraslado.setBorder(null);
-    btnTraslado.setPreferredSize(new Dimension(bGMovimientos.getWidth(), 40));
-    btnTraslado.setFocusable(false);
-    btnTraslado.addActionListener(e -> {
-        menuWindow.setVisible(false);
-        // ⭐ ENVÍA EL USUARIO ⭐
-        new PanelTraslado(this.usuarioActual).setVisible(true);
-        this.dispose();
-    });
-    menuPanel.add(btnTraslado);
-
-    // ======== BOTÓN SALIDA ========
-    JButton btnSalida = new JButton("Salida");
-    btnSalida.setBackground(new java.awt.Color(0, 102, 204));
-    btnSalida.setFont(new java.awt.Font("Segoe UI", 0, 14));
-    btnSalida.setForeground(Color.WHITE);
-    btnSalida.setBorder(null);
-    btnSalida.setPreferredSize(new Dimension(bGMovimientos.getWidth(), 40));
-    btnSalida.setFocusable(false);
-    btnSalida.addActionListener(e -> {
-        menuWindow.setVisible(false);
-        // ⭐ ENVÍA EL USUARIO ⭐
-        new PanelSalida(this.usuarioActual).setVisible(true);
-        this.dispose();
-    });
-    menuPanel.add(btnSalida);
-
-    // --- 4. Ensamblar la JWindow ---
-    menuWindow.setContentPane(menuPanel);
-    menuWindow.pack();
-
-    // --- 5. Lógica de "Ocultar al hacer clic fuera" ---
-    menuWindow.addWindowFocusListener(new WindowAdapter() {
-        @Override
-        public void windowLostFocus(WindowEvent e) {
-            // Solo cerramos si NO fue el botón quien inició el cierre
-            if (!cerrandoPorBoton.get()) { // <-- Usamos .get()
-                menuWindow.setVisible(false);
-            }
-            // Reiniciamos la bandera
-            cerrandoPorBoton.set(false); // <-- Usamos .set(false)
-        }
-    });
-
-    // --- 6. Lógica de MOSTRAR / OCULTAR (¡Ahora sí funciona!) ---
-    bGMovimientos.addActionListener((ActionEvent e) -> {
-        if (menuWindow.isVisible()) {
-            // Si está visible, la cerramos
-            
-            // 1. Levantamos la bandera: ¡Vamos a cerrar la ventana!
-            cerrandoPorBoton.set(true); // <-- Usamos .set(true)
-            
-            // 2. Cerramos
-            menuWindow.setVisible(false);
-        } else {
-            // Si está oculta, la mostramos
-            Point location = bGMovimientos.getLocationOnScreen();
-            int height = bGMovimientos.getHeight();
-            
-            menuWindow.setLocation(location.x, location.y + height);
-            
-            menuWindow.setVisible(true);
-            menuWindow.requestFocus();
-        }
-    });
-} 
-    
-
     /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
+     * Asegura que la imagen se cargue desde el classpath y que el escalado 
+     * se realice solo cuando iLogo tenga dimensiones válidas.
      */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
+    private void ajustarLogo() {
+        // 1. Cargar la imagen desde el classpath, método más robusto.
+        ImageIcon iconoOriginal = new ImageIcon(getClass().getResource("/Images/LogoNotMobi.png"));
 
-        panelPrincipal = new javax.swing.JPanel();
-        jPanel2 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
-        jSeparator1 = new javax.swing.JSeparator();
-        bArticulos = new javax.swing.JButton();
-        bEstadística = new javax.swing.JButton();
-        bUbicacion1 = new javax.swing.JButton();
-        bAuditoría = new javax.swing.JButton();
-        bGMovimientos = new javax.swing.JButton();
-        jPanel3 = new javax.swing.JPanel();
-        lblBienvenida = new javax.swing.JLabel();
-        iLogo = new javax.swing.JLabel();
-        btnCerrarSesion = new javax.swing.JButton();
-        jLabel2 = new javax.swing.JLabel();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        panelPrincipal.setBackground(new java.awt.Color(255, 255, 255));
-        panelPrincipal.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel2.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel2.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Sistema Mobiliario");
-        jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 35, 250, 47));
-        jPanel2.add(jSeparator1, new org.netbeans.lib.awtextra.AbsoluteConstraints(44, 88, 168, 10));
-
-        bArticulos.setBackground(new java.awt.Color(0, 102, 204));
-        bArticulos.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bArticulos.setForeground(new java.awt.Color(255, 255, 255));
-        bArticulos.setText("Gestión Artículos");
-        bArticulos.setBorder(null);
-        bArticulos.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bArticulosActionPerformed(evt);
+        // 2. Verificar si la carga fue exitosa y la imagen no es nula.
+        if (iconoOriginal != null && iconoOriginal.getImageLoadStatus() == MediaTracker.COMPLETE && iconoOriginal.getIconWidth() > 0) {
+            
+            // 3. Si las dimensiones del JLabel son 0, usa un listener para esperar a que se le asignen.
+            if (iLogo.getWidth() == 0 || iLogo.getHeight() == 0) {
+                iLogo.addComponentListener(new java.awt.event.ComponentAdapter() {
+                    @Override
+                    public void componentResized(java.awt.event.ComponentEvent evt) {
+                        iLogo.removeComponentListener(this); // Remover después del primer ajuste
+                        adjustImage(iconoOriginal);
+                    }
+                });
+            } else {
+                // 4. Si ya tiene dimensiones, ajusta inmediatamente.
+                adjustImage(iconoOriginal);
             }
-        });
-        jPanel2.add(bArticulos, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 160, 250, 70));
-
-        bEstadística.setBackground(new java.awt.Color(0, 102, 204));
-        bEstadística.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bEstadística.setForeground(new java.awt.Color(255, 255, 255));
-        bEstadística.setText("Estadística");
-        bEstadística.setBorder(null);
-        bEstadística.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bEstadísticaActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bEstadística, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 440, 250, 60));
-
-        bUbicacion1.setBackground(new java.awt.Color(13, 51, 131));
-        bUbicacion1.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bUbicacion1.setForeground(new java.awt.Color(255, 255, 255));
-        bUbicacion1.setText("Gestión Ubicación");
-        bUbicacion1.setBorder(null);
-        bUbicacion1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bUbicacion1ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bUbicacion1, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 230, 250, 70));
-
-        bAuditoría.setBackground(new java.awt.Color(13, 51, 131));
-        bAuditoría.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bAuditoría.setForeground(new java.awt.Color(255, 255, 255));
-        bAuditoría.setText("Auditoría");
-        bAuditoría.setBorder(null);
-        bAuditoría.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bAuditoríaActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bAuditoría, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 370, 250, 70));
-
-        bGMovimientos.setBackground(new java.awt.Color(0, 102, 204));
-        bGMovimientos.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bGMovimientos.setForeground(new java.awt.Color(255, 255, 255));
-        bGMovimientos.setText("Gestión Movimientos");
-        bGMovimientos.setBorder(null);
-        bGMovimientos.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bGMovimientosActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bGMovimientos, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 300, 250, 70));
-
-        panelPrincipal.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 250, 500));
-
-        jPanel3.setBackground(new java.awt.Color(0, 102, 204));
-
-        lblBienvenida.setBackground(new java.awt.Color(255, 255, 255));
-        lblBienvenida.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        lblBienvenida.setForeground(new java.awt.Color(255, 255, 255));
-        lblBienvenida.setText("¡Bienvenido!");
-
-        iLogo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/LogoNotMobi.png"))); // NOI18N
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addComponent(lblBienvenida, javax.swing.GroupLayout.PREFERRED_SIZE, 401, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(iLogo, javax.swing.GroupLayout.PREFERRED_SIZE, 171, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(14, 14, 14))
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(28, 28, 28)
-                .addComponent(lblBienvenida, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(52, Short.MAX_VALUE))
-            .addComponent(iLogo, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-        );
-
-        panelPrincipal.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(250, 60, 580, 140));
-
-        btnCerrarSesion.setBackground(new java.awt.Color(0, 102, 204));
-        btnCerrarSesion.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        btnCerrarSesion.setForeground(new java.awt.Color(255, 255, 255));
-        btnCerrarSesion.setText("Cerrar Sesión");
-        btnCerrarSesion.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
-        btnCerrarSesion.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnCerrarSesionActionPerformed(evt);
-            }
-        });
-        panelPrincipal.add(btnCerrarSesion, new org.netbeans.lib.awtextra.AbsoluteConstraints(248, 0, 580, 60));
-
-        jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/sistema-vivant-muebles-sygma-003.jpg"))); // NOI18N
-        jLabel2.setText("jLabel2");
-        panelPrincipal.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(240, 200, 590, 300));
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(panelPrincipal, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(panelPrincipal, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void bAuditoríaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bAuditoríaActionPerformed
-        VistaLogAuditoria panelAuditoria = new VistaLogAuditoria(this.usuarioActual);
-        panelAuditoria.setVisible(true);
-        this.dispose();
-    }//GEN-LAST:event_bAuditoríaActionPerformed
-
-    private void bArticulosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bArticulosActionPerformed
-        // TODO add your handling code here:
-        new PanelArticulos(this.usuarioActual).setVisible(true);
-        this.dispose();// Cierra la vista actual
-    }//GEN-LAST:event_bArticulosActionPerformed
-
-    private void bEstadísticaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bEstadísticaActionPerformed
-        //EstadisticasArticulosStock panelArticulosStock = new EstadisticasArticulosStock(this.usuarioActual);
-        //panelArticulosStock.setVisible(true);
-        //this.dispose();
+        } else {
+            // Manejo de error de imagen
+            iLogo.setText("Logo no encontrado");
+        }
+    }
+    
+    // Método auxiliar para escalar la imagen (Solución al error anterior)
+    private void adjustImage(ImageIcon iconoOriginal) {
+        // Asegura que tanto la imagen esté cargada como que el JLabel tenga tamaño.
+        if (iconoOriginal.getImageLoadStatus() == MediaTracker.COMPLETE && iLogo.getWidth() > 0 && iLogo.getHeight() > 0) {
+            Image imagen = iconoOriginal.getImage();
+            Image imagenEscalada = imagen.getScaledInstance(
+                iLogo.getWidth(),
+                iLogo.getHeight(),
+                Image.SCALE_SMOOTH
+            );
+            iLogo.setIcon(new ImageIcon(imagenEscalada));
+        } else {
+             // Intenta mostrarla en tamaño original si el escalado falla por dimensiones
+             iLogo.setIcon(iconoOriginal);
+        }
+    }
+    
+    private void cargarPrecioBcvAsync() {
+        if (precioBcv == null) return;
         
+        precioBcv.setText("...");
+
+        SwingWorker<Double, Void> worker = new SwingWorker<Double, Void>() {
+            @Override
+            protected Double doInBackground() throws Exception {
+                Bcv bcv = new Bcv();
+                return bcv.getRate();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Double rate = get();
+                    GestorBcv.getInstance().setTasaActual(rate);
+                    precioBcv.setText(String.format("%.2f", GestorBcv.getInstance().getTasaActual()));
+                } catch (Exception e) {
+                    GestorBcv.getInstance().setTasaActual(-1.0);
+                    precioBcv.setText("Error");
+                }
+            }
+        };
+        worker.execute();
+    }
+    
+    private void configurarMenuMovimientos() {
+        final AtomicBoolean cerrandoPorBoton = new AtomicBoolean(false); 
+        bGMovimientos.setFocusable(false);
+
+        // --- 1. Panel de botones ---
+        JPanel menuPanel = new JPanel();
+        menuPanel.setLayout(new GridLayout(3, 1, 0, 2));
+        menuPanel.setBackground(new Color(255, 255, 255));
+        menuPanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+
+        // --- 2. JWindow flotante ---
+        Window parentWindow = SwingUtilities.getWindowAncestor(bGMovimientos);
+        final JWindow menuWindow = new JWindow(parentWindow);
+
+        // --- 3. Creación de botones ---
+        JButton btnEntrada = createMenuItemButton("Entrada", new Color(0, 102, 204), e -> {
+            new PanelEntrada(this.usuarioActual).setVisible(true);
+            this.dispose();
+        });
+        menuPanel.add(btnEntrada);
+
+        JButton btnTraslado = createMenuItemButton("Traslado", new Color(13, 51, 131), e -> {
+            menuWindow.setVisible(false);
+            new PanelTraslado(this.usuarioActual).setVisible(true);
+            this.dispose();
+        });
+        menuPanel.add(btnTraslado);
+
+        JButton btnSalida = createMenuItemButton("Salida", new Color(0, 102, 204), e -> {
+            menuWindow.setVisible(false);
+            new PanelSalida(this.usuarioActual).setVisible(true);
+            this.dispose();
+        });
+        menuPanel.add(btnSalida);
+
+        menuWindow.setContentPane(menuPanel);
+        menuWindow.pack();
+
+        // --- 5. Lógica de foco y cierre ---
+        menuWindow.addWindowFocusListener(new WindowAdapter() {
+            @Override
+            public void windowLostFocus(WindowEvent e) {
+                if (!cerrandoPorBoton.get()) { 
+                    menuWindow.setVisible(false);
+                }
+                cerrandoPorBoton.set(false); 
+            }
+        });
+
+        // --- 6. Lógica de MOSTRAR / OCULTAR ---
+        bGMovimientos.addActionListener((ActionEvent e) -> {
+            if (menuWindow.isVisible()) {
+                cerrandoPorBoton.set(true); 
+                menuWindow.setVisible(false);
+            } else {
+                Point location = bGMovimientos.getLocationOnScreen();
+                int height = bGMovimientos.getHeight();
+                
+                menuWindow.setSize(bGMovimientos.getWidth(), menuPanel.getPreferredSize().height);
+                menuWindow.setLocation(location.x, location.y + height);
+                
+                menuWindow.setVisible(true);
+                menuWindow.requestFocus();
+            }
+        });
+    }
+    
+    // Método auxiliar para crear botones del menú desplegable
+    private JButton createMenuItemButton(String text, Color bgColor, java.awt.event.ActionListener listener) {
+        JButton button = new JButton(text);
+        button.setBackground(bgColor);
+        button.setFont(new Font("Segoe UI", 0, 14));
+        button.setForeground(Color.WHITE);
+        button.setBorder(null);
+        button.setPreferredSize(new Dimension(250, 40));
+        button.setFocusable(false);
+        button.addActionListener(listener);
+        return button;
+    }
+    
+    // 🎨 REIMPLEMENTACIÓN MANUAL DE initComponents
+    private void initComponents() {
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        
+        // 1. Panel Principal (BorderLayout)
+        panelPrincipal = new JPanel(new BorderLayout());
+        panelPrincipal.setBackground(new Color(255, 255, 255));
+        
+        // 2. Panel Lateral de Menú (WEST - GridBagLayout para botones expandibles)
+        jPanel2 = new JPanel(new GridBagLayout()); 
+        jPanel2.setBackground(new Color(13, 51, 131));
+        jPanel2.setPreferredSize(new Dimension(250, 500)); 
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH; 
+        gbc.weightx = 1.0; 
+        
+        // --- 2a. Título y Separador ---
+        jLabel1 = new JLabel("Sistema Mobiliario");
+        jLabel1.setFont(new Font("Segoe UI Black", 1, 20));
+        jLabel1.setForeground(Color.WHITE);
+        jLabel1.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        gbc.gridx = 0; gbc.gridy = 0; gbc.ipady = 35; gbc.weighty = 0.01;
+        jPanel2.add(jLabel1, gbc);
+        
+        jSeparator1 = new JSeparator();
+        jSeparator1.setForeground(Color.WHITE); 
+        gbc.gridy = 1; gbc.ipady = 0; gbc.weighty = 0.01;
+        gbc.insets = new Insets(0, 44, 10, 44);
+        jPanel2.add(jSeparator1, gbc);
+        
+        // --- 2b. Creación y adición de botones (Alto Peso Vertical) ---
+        gbc.weighty = 1.0; // ¡Clave! Todos los botones compartirán el espacio restante
+        gbc.ipady = 0;
+        gbc.insets = new Insets(0, 0, 0, 0); 
+
+        int currentRow = 2; 
+
+        bArticulos = createMenuButton("Gestión Artículos", new Color(0, 102, 204), this::bArticulosActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(bArticulos, gbc);
+        
+        bUbicacion1 = createMenuButton("Gestión Ubicación", new Color(13, 51, 131), this::bUbicacion1ActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(bUbicacion1, gbc);
+        
+        jButton1 = createMenuButton("Orden De compra", new Color(0, 102, 204), this::jButton1ActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(jButton1, gbc);
+        
+        bGMovimientos = createMenuButton("Gestión Movimientos", new Color(13, 51, 131), this::bGMovimientosActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(bGMovimientos, gbc);
+        
+        bEstadística = createMenuButton("Estadística", new Color(0, 102, 204), this::bEstadísticaActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(bEstadística, gbc);
+        
+        bAuditoría = createMenuButton("Reportes", new Color(13, 51, 131), this::bAuditoríaActionPerformed);
+        gbc.gridy = currentRow++; jPanel2.add(bAuditoría, gbc);
+
+        panelPrincipal.add(jPanel2, BorderLayout.WEST); 
+        
+        // 3. Panel de Contenido Principal (CENTER)
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        
+        // 3a. Header Superior (Tasa BCV y Cerrar Sesión)
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        
+        JPanel topStripPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        jLabel3 = new JLabel("Tasa Actual:");
+        jLabel3.setFont(new Font("Segoe UI", 1, 14));
+        precioBcv = new JLabel();
+        precioBcv.setFont(new Font("Segoe UI", 0, 14));
+        
+        topStripPanel.add(Box.createHorizontalStrut(10));
+        topStripPanel.add(jLabel3);
+        topStripPanel.add(precioBcv);
+        
+        btnCerrarSesion = new JButton("Cerrar Sesión");
+        btnCerrarSesion.setFont(new Font("Segoe UI", 0, 18));
+        btnCerrarSesion.setBackground(new Color(0, 102, 204));
+        btnCerrarSesion.setForeground(Color.WHITE);
+        btnCerrarSesion.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+        btnCerrarSesion.addActionListener(this::btnCerrarSesionActionPerformed);
+        
+        JPanel closePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT)); // Alineación a la derecha
+        closePanel.add(btnCerrarSesion);
+        
+        headerPanel.add(topStripPanel, BorderLayout.WEST);
+        headerPanel.add(closePanel, BorderLayout.EAST);
+        
+        contentPanel.add(headerPanel, BorderLayout.NORTH);
+        
+        // 3b. Panel Banner (Bienvenida y Logo) - NORTE del centro
+        jPanel3 = new JPanel(new BorderLayout());
+        jPanel3.setBackground(new Color(0, 102, 204));
+        jPanel3.setPreferredSize(new Dimension(580, 140));
+        
+        lblBienvenida = new JLabel("¡Bienvenido!");
+        lblBienvenida.setFont(new Font("Segoe UI Black", 1, 20));
+        lblBienvenida.setForeground(Color.WHITE);
+        lblBienvenida.setBorder(BorderFactory.createEmptyBorder(28, 20, 0, 0));
+        
+        iLogo = new JLabel();
+        iLogo.setPreferredSize(new Dimension(171, 140)); // Se ajusta para ocupar la altura completa de jPanel3
+        iLogo.setHorizontalAlignment(SwingConstants.CENTER);
+        iLogo.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 14));
+        
+        jPanel3.add(lblBienvenida, BorderLayout.WEST);
+        jPanel3.add(iLogo, BorderLayout.EAST); // El logo se añade aquí.
+        
+        // 3c. Imagen de Fondo (CENTER del centro)
+        jLabel2 = new JLabel();
+        try {
+            // Carga la imagen de fondo desde el classpath
+            jLabel2.setIcon(new ImageIcon(getClass().getResource("/Images/sistema-vivant-muebles-sygma-003.jpg")));
+        } catch (Exception e) {
+            jLabel2.setText("Imagen de Fondo no disponible");
+            jLabel2.setHorizontalAlignment(SwingConstants.CENTER);
+        }
+        jLabel2.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        // Panel contenedor para Banner e Imagen de Fondo
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.add(jPanel3, BorderLayout.NORTH);
+        centerPanel.add(jLabel2, BorderLayout.CENTER);
+        
+        contentPanel.add(centerPanel, BorderLayout.CENTER);
+        
+        panelPrincipal.add(contentPanel, BorderLayout.CENTER);
+        
+        getContentPane().add(panelPrincipal);
+    }
+    
+    // Método auxiliar para crear botones de menú lateral
+    private JButton createMenuButton(String text, Color bgColor, java.awt.event.ActionListener listener) {
+        JButton button = new JButton(text);
+        button.setBackground(bgColor);
+        button.setFont(new Font("Segoe UI", 0, 14));
+        button.setForeground(Color.WHITE);
+        button.setBorder(null);
+        button.setMinimumSize(new Dimension(250, 60)); 
+        button.addActionListener(listener);
+        return button;
+    }
+    
+    // --- LÓGICA DE EVENTOS ---
+
+    private void bAuditoríaActionPerformed(java.awt.event.ActionEvent evt) {
+        // Asumiendo que PanelReportes existe y acepta Usuario
+        PanelReportes panelReportes = new PanelReportes(this.usuarioActual);
+        panelReportes.setVisible(true);
+        this.dispose();
+    }
+    
+    private void bArticulosActionPerformed(java.awt.event.ActionEvent evt) {
+        // Asumiendo que PanelArticulos existe y acepta Usuario
+        new PanelArticulos(this.usuarioActual).setVisible(true);
+        this.dispose();
+    }
+    
+    private void bEstadísticaActionPerformed(java.awt.event.ActionEvent evt) {
+        // Asumiendo que PanelEstadistica existe y acepta Usuario
         PanelEstadistica panelEstadistica = new PanelEstadistica(this.usuarioActual);
         panelEstadistica.setVisible(true);
         this.dispose();
-    }//GEN-LAST:event_bEstadísticaActionPerformed
-
-    private void bUbicacion1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bUbicacion1ActionPerformed
+    }
+    
+    private void bUbicacion1ActionPerformed(java.awt.event.ActionEvent evt) {
+        // Asumiendo que PanelUbicacion existe y acepta Usuario
         new PanelUbicacion(this.usuarioActual).setVisible(true);
         this.dispose();
-    }//GEN-LAST:event_bUbicacion1ActionPerformed
-
-    private void bGMovimientosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bGMovimientosActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_bGMovimientosActionPerformed
-
-    private void btnCerrarSesionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCerrarSesionActionPerformed
-        // TODO add your handling code here:
+    }
+    
+    private void bGMovimientosActionPerformed(java.awt.event.ActionEvent evt) {
+        // La lógica del menú desplegable se maneja en configurarMenuMovimientos()
+    }
+    
+    private void btnCerrarSesionActionPerformed(java.awt.event.ActionEvent evt) {
         int confirm = JOptionPane.showConfirmDialog(
             this,
             "¿Está seguro que desea cerrar sesión?",
@@ -386,30 +408,14 @@ private void configurarMenuMovimientos() {
 
         if(confirm == JOptionPane.YES_OPTION) {
             this.dispose();
-            new LoginVista().setVisible(true);
+            new LoginVista().setVisible(true); // Asumiendo que LoginVista existe
         }
-
-    }//GEN-LAST:event_btnCerrarSesionActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton bArticulos;
-    private javax.swing.JButton bAuditoría;
-    private javax.swing.JButton bEstadística;
-    private javax.swing.JButton bGMovimientos;
-    private javax.swing.JButton bUbicacion1;
-    private javax.swing.JButton btnCerrarSesion;
-    private javax.swing.JLabel iLogo;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    private javax.swing.JSeparator jSeparator1;
-    private javax.swing.JLabel lblBienvenida;
-    private javax.swing.JPanel panelPrincipal;
-    // End of variables declaration//GEN-END:variables
+    }
+    
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {
+        // Asumiendo que PanelOrdenCompra existe y acepta Usuario
+        PanelOrdenCompra panelCompra = new PanelOrdenCompra(this.usuarioActual);
+        panelCompra.setVisible(true);
+        this.dispose();
+    }
 }

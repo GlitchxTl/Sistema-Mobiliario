@@ -1,1170 +1,618 @@
 package Vista;
 
-
-
 import Controlador.ArticuloControlador;
-
 import Controlador.MovimientoControlador;
-
+import Modelo.Articulo;
+import Modelo.InventarioDAO;
+import Modelo.Movimiento;
+import Modelo.Ubicacion;
+import Modelo.UbicacionDAO;
 import Modelo.Usuario;
 
-import Modelo.Articulo;
-
-import Modelo.Movimiento;
-
-import Modelo.Ubicacion;
-
-import Modelo.UbicacionDAO;
-
-import java.sql.SQLException;
-
-import java.util.List;
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.FontFactory;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
 
 import javax.swing.*;
-
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
-
+import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
-
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+public class PanelSalida extends JFrame {
 
-
-public class PanelSalida extends javax.swing.JFrame {
-
-
-
-    private final ArticuloControlador articuloControl = new ArticuloControlador();
-
-    private final MovimientoControlador movimientoControl = new MovimientoControlador();
-
-    private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
-
-    private Usuario usuarioActual;
-
-    private Long idMovimientoSeleccionado = null; // Para seleccionar una fila para Modificar/Eliminar
-
-
-
-    // ⭐ CAMBIO 2: Nuevo constructor para recibir el usuario ⭐
-
-    public PanelSalida(Usuario usuario) {
-
-        initComponents();
-        this.setResizable(false);
-        this.usuarioActual = usuario; // Guarda el usuario
-
-        
-
-        
-
-        
-
-        cargarCombos();
-
-        cargarTablaSalidas();  
-
-        cargarTablaEntradas();
-
-        
-
-        configurarEventoTablaSalida(); // ⭐ NUEVO: Configura clic en tabla de Salidas
-
-        configurarEventoTablaEntrada();
-
-        bRegistrarSalida.addActionListener(e -> onRegistrarSalida());
-
-    }
-
+    // --- Componentes de la UI ---
+    private JComboBox<Articulo> jCBArticuloSalida;
+    private JFormattedTextField jFTCantidadSalida;
+    private JComboBox<Ubicacion> jCBUbicacionOrigen;
+    private JFormattedTextField jFTMotivo;
     
+    // Tablas
+    private JTable jTablaSalida; // Tabla superior (Historial)
+    private JTable jTableEntrada_Inventario; // Tabla inferior (Stock disponible)
+    private DefaultTableModel modeloTablaSalida;
+    private DefaultTableModel modeloTablaEntrada;
 
-    // (Dejas el constructor vacío si el diseñador lo requiere)
+    // Botones
+    private JButton bRegistrarSalida, bConsultarSalida, bVerTodo, bExportar, bVolver;
+
+    // --- Variables de Control ---
+    private final ArticuloControlador articuloControl = new ArticuloControlador();
+    private final InventarioDAO inventarioDAO = new InventarioDAO();
+    private final MovimientoControlador movimientoControl = new MovimientoControlador();
+    private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
+    private Usuario usuarioActual;
+    private Long idMovimientoSeleccionado = null;
+
+    // Constantes de Estilo
+    private final Color COLOR_AZUL = new Color(13, 51, 131);
+    private final Font FONT_TITLE = new Font("Segoe UI Black", Font.BOLD, 18);
+    private final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
+    private final Font FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 14);
+
+    // Constructor
+    public PanelSalida(Usuario usuario) {
+        this.usuarioActual = usuario;
+
+        // Configuración de la Ventana
+        setTitle("Baja de Mobiliario (Salidas)");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1200, 750); 
+        setMinimumSize(new Dimension(1000, 650));
+        setLocationRelativeTo(null);
+
+        // Inicialización
+        initUI();
+        cargarCombos();
+        cargarTablaSalidas();
+        cargarTablaEntradas();
+        configurarEventosTablas();
+    }
 
     public PanelSalida() {
-
         this(null);
-
     }
 
+    private void initUI() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Color.WHITE);
+        setContentPane(mainPanel);
 
+        // ==========================================
+        // 1. HEADER (NORTE)
+        // ==========================================
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(COLOR_AZUL);
+        headerPanel.setPreferredSize(new Dimension(getWidth(), 60));
+        headerPanel.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-    // -----------------------------------------------------------------------
+        JLabel lblTitulo = new JLabel("Baja de Mobiliario", SwingConstants.CENTER);
+        lblTitulo.setFont(FONT_TITLE);
+        lblTitulo.setForeground(Color.WHITE);
 
-    // --- LÓGICA DE VISIBILIDAD Y AUXILIARES ---
+        bVolver = crearBotonHeader("Volver");
 
-    // -----------------------------------------------------------------------
+        headerPanel.add(lblTitulo, BorderLayout.CENTER);
+        headerPanel.add(bVolver, BorderLayout.EAST);
 
-    /** Cargar combos de artículos y ubicaciones */
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
 
-    private void cargarCombos() {
+        // ==========================================
+        // 2. CONTENIDO CENTRAL (CENTRO)
+        // ==========================================
+        JPanel centerPanel = new JPanel(new GridBagLayout());
+        centerPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
 
-        try {
+        // --- Panel Formulario (Izquierda) ---
+        JPanel formPanel = crearPanelFormulario();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0.30; 
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 20, 10, 10);
+        centerPanel.add(formPanel, gbc);
 
-            // Artículos
+        // --- Panel Tablas (Derecha) ---
+        JPanel tablesPanel = crearPanelTablas();
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 0.70; 
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(10, 0, 10, 20);
+        centerPanel.add(tablesPanel, gbc);
 
-            DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
+        mainPanel.add(centerPanel, BorderLayout.CENTER);
 
-            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
+        // ==========================================
+        // 3. FOOTER BOTONES (SUR)
+        // ==========================================
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
+        footerPanel.setBackground(Color.WHITE);
 
-            for (Articulo a : articulos) modeloArticulos.addElement(a);
+        bRegistrarSalida = crearBotonAccion("Confirmar");
+        bConsultarSalida = crearBotonAccion("Consultar");
+        bVerTodo = crearBotonAccion("Ver Todo");
+        bExportar = crearBotonAccion("Exportar");
 
-            jCBArticuloSalida.setModel(modeloArticulos);
+        footerPanel.add(bRegistrarSalida);
+        footerPanel.add(bConsultarSalida);
+        footerPanel.add(bVerTodo);
+        footerPanel.add(bExportar);
 
-
-
-            // Ubicaciones
-
-            DefaultComboBoxModel<Ubicacion> modeloUbicaciones = new DefaultComboBoxModel<>();
-
-            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
-
-            for (Ubicacion u : ubicaciones) modeloUbicaciones.addElement(u);
-
-            jCBUbicacionOrigen.setModel(modeloUbicaciones);
-
-
-
-        } catch (SQLException e) {
-
-            JOptionPane.showMessageDialog(this, "Error cargando datos: " + e.getMessage(),
-
-                                 "Error", JOptionPane.ERROR_MESSAGE);
-
-        }
-
+        mainPanel.add(footerPanel, BorderLayout.SOUTH);
     }
 
+    private JPanel crearPanelFormulario() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(COLOR_AZUL),
+                "Datos de Salida",
+                TitledBorder.DEFAULT_JUSTIFICATION,
+                TitledBorder.DEFAULT_POSITION,
+                FONT_BOLD,
+                COLOR_AZUL));
 
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(10, 5, 10, 5);
+        g.anchor = GridBagConstraints.WEST;
+        g.fill = GridBagConstraints.HORIZONTAL;
 
-    /** Registrar salida */
+        // Componentes
+        jCBArticuloSalida = new JComboBox<>();
+        jFTCantidadSalida = new JFormattedTextField();
+        jCBUbicacionOrigen = new JComboBox<>();
+        jFTMotivo = new JFormattedTextField();
 
-    private void onRegistrarSalida() {
+        // Fila 0: Artículo
+        addLabelAndField(p, "Artículo:", jCBArticuloSalida, 0, g);
+        // Fila 1: Cantidad
+        addLabelAndField(p, "Cantidad:", jFTCantidadSalida, 1, g);
+        // Fila 2: Ubicación Origen
+        addLabelAndField(p, "Ubicación Origen:", jCBUbicacionOrigen, 2, g);
+        // Fila 3: Motivo
+        addLabelAndField(p, "Motivo:", jFTMotivo, 3, g);
 
-        try {
+        // Espaciador vertical
+        g.gridy = 4; g.weighty = 1.0;
+        p.add(new JLabel(), g);
 
-            Articulo art = (Articulo) jCBArticuloSalida.getSelectedItem();
-
-            Ubicacion ubicOrigen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
-
-            int cantidad = parseIntSafe(jFTCantidadSalida.getText());
-
-            String motivo = jFTMotivo.getText().trim();
-
-
-
-            if (art == null || ubicOrigen == null) {
-
-                JOptionPane.showMessageDialog(this, "Selecciona artículo y ubicación origen.",
-
-                                 "Validación", JOptionPane.WARNING_MESSAGE);
-
-                return;
-
-            }
-
-
-
-            if (cantidad <= 0) {
-
-                JOptionPane.showMessageDialog(this, "Cantidad inválida (>0).",
-
-                                 "Validación", JOptionPane.WARNING_MESSAGE);
-
-                return;
-
-            }
-
-
-
-            if (motivo.isEmpty()) {
-
-                JOptionPane.showMessageDialog(this, "Debes indicar un motivo de salida.",
-
-                                 "Validación", JOptionPane.WARNING_MESSAGE);
-
-                return;
-
-            }
-
-
-
-            // Registrar salida con 4 argumentos: idArticulo, cantidad, idUbicacionOrigen, motivo
-
-            boolean ok = movimientoControl.registrarSalida(
-
-                    art.getIdArticulo(),
-
-                    cantidad,
-
-                    ubicOrigen.getId_ubicacion(),
-
-                    motivo
-
-            );
-
-
-
-            if (ok) {
-
-                JOptionPane.showMessageDialog(this, "Salida registrada correctamente.",
-
-                                 "OK", JOptionPane.INFORMATION_MESSAGE);
-
-                jFTCantidadSalida.setText("");
-
-                jFTMotivo.setText("");
-
-                cargarTablaSalidas();  
-
-            } else {
-
-                JOptionPane.showMessageDialog(this,
-
-                                 "No se pudo registrar la salida (verifica stock o error interno).",
-
-                                 "Error", JOptionPane.ERROR_MESSAGE);
-
-            }
-
-
-
-        } catch (SQLException ex) {
-
-            JOptionPane.showMessageDialog(this, "Error SQL: " + ex.getMessage(),
-
-                                 "Error", JOptionPane.ERROR_MESSAGE);
-
-            ex.printStackTrace();
-
-        }
-
+        return p;
     }
 
+    private void addLabelAndField(JPanel p, String text, JComponent field, int row, GridBagConstraints g) {
+        g.gridx = 0; g.gridy = row; g.weightx = 0.0;
+        JLabel l = new JLabel(text);
+        l.setFont(FONT_PLAIN);
+        p.add(l, g);
 
-
-    // -------------------------------------------------------------------------
-
-    // --- LÓGICA DE TABLAS ---
-
-    // -------------------------------------------------------------------------
-
-    
-
-    /** Carga los movimientos de tipo SALIDA en la tabla jTablaSalida */
-
-    private void cargarTablaSalidas() {
-
-        try {
-
-            // Columnas necesarias para el modelo: ID, Artículo, Cantidad, Origen, Motivo, Entregado, Fecha/Hora
-
-            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación", "Motivo", "Entregado Por", "Fecha/Hora"};
-
-            
-
-            DefaultTableModel nuevoModel = new DefaultTableModel(columnas, 0) {
-
-                @Override
-
-                public Class<?> getColumnClass(int columnIndex) {
-
-                    if (columnIndex == 0) return Long.class;      // ID (Long)
-
-                    if (columnIndex == 2) return Integer.class;   // Cantidad (Integer)
-
-                    return Object.class;
-
-                }
-
-                @Override
-
-                public boolean isCellEditable(int row, int column) {
-
-                    return false;
-
-                }
-
-            };
-
-            
-
-            jTablaSalida.setModel(nuevoModel);
-
-            // Ocultar la columna del ID (Columna 0)
-
-            jTablaSalida.getColumnModel().getColumn(0).setMinWidth(0);
-
-            jTablaSalida.getColumnModel().getColumn(0).setMaxWidth(0);
-
-            jTablaSalida.getColumnModel().getColumn(0).setWidth(0);
-
-
-
-            List<Movimiento> listaSalidas = movimientoControl.obtenerSalidas();
-
-
-
-            for (Movimiento m : listaSalidas) {
-
-                nuevoModel.addRow(new Object[]{
-
-                    m.getIdMovimiento(), // ID en la columna 0
-
-                    m.getNombreArticulo(),
-
-                    m.getCantidad(),
-
-                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
-
-                    m.getMotivo() != null ? m.getMotivo() : "-",
-
-                    m.getEntregado() != null ? m.getEntregado() : "-", 
-
-                    m.getFechaHora()
-
-                });
-
-            }
-
-
-
-        } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(this, "Error al cargar la tabla de salidas: " + e.getMessage(),
-
-                                 "Error", JOptionPane.ERROR_MESSAGE);
-
-            e.printStackTrace();
-
-        }
-
+        g.gridx = 1; g.weightx = 1.0;
+        field.setPreferredSize(new Dimension(150, 30));
+        p.add(field, g);
     }
 
-    
+    private JPanel crearPanelTablas() {
+        JPanel container = new JPanel(new GridLayout(2, 1, 0, 15));
+        container.setBackground(Color.WHITE);
 
-    /** Carga los movimientos de tipo ENTRADA en la tabla jTableEntrada */
-
-private void cargarTablaEntradas() {
-
-    try {
-
-        // ⭐ 1. Definir columnas, incluyendo ID en la posición 0 ⭐
-
-        String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación Destino", "Costo", "Vencimiento", "Entregado Por", "Fecha/Hora"};
-
-
-
-        DefaultTableModel nuevoModel = new DefaultTableModel(columnas, 0) {
-
-            @Override
-
-            public Class<?> getColumnClass(int columnIndex) {
-
-                // ⭐ Tipo de la columna 0 DEBE ser Long ⭐
-
-                if (columnIndex == 0) return Long.class;
-
-                if (columnIndex == 2) return Integer.class;
-
-                return Object.class;
-
-            }
-
-            @Override
-
-            public boolean isCellEditable(int row, int column) {
-
-                return false;
-
-            }
-
-        };
-
+        // --- Tabla Superior: Salidas ---
+        JPanel panelSalidas = new JPanel(new BorderLayout());
+        panelSalidas.setBackground(Color.WHITE);
+        panelSalidas.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(COLOR_AZUL), "Historial de Salidas", 
+                TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.TOP, FONT_BOLD, COLOR_AZUL));
         
+        jTablaSalida = new JTable();
+        jTablaSalida.setRowHeight(25);
+        jTablaSalida.getTableHeader().setBackground(COLOR_AZUL);
+        jTablaSalida.getTableHeader().setForeground(Color.WHITE);
+        jTablaSalida.getTableHeader().setFont(FONT_BOLD);
+        panelSalidas.add(new JScrollPane(jTablaSalida), BorderLayout.CENTER);
 
-        jTableEntrada_Inventario.setModel(nuevoModel); 
+        // --- Tabla Inferior: Inventario (Entradas) ---
+        JPanel panelInventario = new JPanel(new BorderLayout());
+        panelInventario.setBackground(Color.WHITE);
+        panelInventario.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(46, 204, 113)), "Inventario Disponible (Origen)", 
+                TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.TOP, FONT_BOLD, new Color(46, 204, 113)));
 
-        
+        jTableEntrada_Inventario = new JTable();
+        jTableEntrada_Inventario.setRowHeight(25);
+        jTableEntrada_Inventario.getTableHeader().setBackground(new Color(46, 204, 113)); // Header Verde
+        jTableEntrada_Inventario.getTableHeader().setForeground(Color.WHITE);
+        jTableEntrada_Inventario.getTableHeader().setFont(FONT_BOLD);
+        panelInventario.add(new JScrollPane(jTableEntrada_Inventario), BorderLayout.CENTER);
 
-        // ⭐ 2. Ocultar la columna del ID (Columna 0) ⭐
+        container.add(panelSalidas);
+        container.add(panelInventario);
 
-        jTableEntrada_Inventario.getColumnModel().getColumn(0).setMinWidth(0);
+        return container;
+    }
 
-        jTableEntrada_Inventario.getColumnModel().getColumn(0).setMaxWidth(0);
+    private JButton crearBotonHeader(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(this::bVolverActionPerformed);
+        return btn;
+    }
 
-        jTableEntrada_Inventario.getColumnModel().getColumn(0).setWidth(0);
+    private JButton crearBotonAccion(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setBackground(COLOR_AZUL);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(FONT_BOLD);
+        btn.setFocusPainted(false);
+        btn.setPreferredSize(new Dimension(140, 40));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-
-
-        List<Movimiento> listaEntradas = movimientoControl.obtenerEntradas();
-
-
-
-        for (Movimiento m : listaEntradas) {
-
-            nuevoModel.addRow(new Object[]{
-
-                // ⭐ El primer elemento de la fila DEBE ser el ID ⭐
-
-                    m.getIdMovimiento(), // Columna 0
-
-                    m.getNombreArticulo(), // Columna 1
-
-                    m.getCantidad(),
-
-                    // En una entrada, la ubicación es el Destino
-
-                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
-
-                    // Formateamos Costo como String para asegurar compatibilidad si no usamos Double.class
-
-                    m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
-
-                    (m.getFechaVencimiento() != null ? m.getFechaVencimiento() : "-"),
-
-                    (m.getEntregado() != null ? m.getEntregado() : "-"),
-
-                    m.getFechaHora()
-
-                });
-
-            }
-
-
-
-        } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(this, "Error al cargar la tabla de entradas: " + e.getMessage(),
-
-                                         "Error", JOptionPane.ERROR_MESSAGE);
-
-            e.printStackTrace();
-
+        switch (texto) {
+            case "Confirmar": btn.addActionListener(e -> onRegistrarSalida()); break;
+            case "Consultar": btn.addActionListener(this::bConsultarSalidaActionPerformed); break;
+            case "Ver Todo": btn.addActionListener(this::bVerTodoActionPerformed); break;
+            case "Exportar": btn.addActionListener(this::bExportarActionPerformed); break;
         }
+        return btn;
+    }
 
-}
+    // ========================================================================
+    // === LÓGICA DE NEGOCIO ===
+    // ========================================================================
 
-    // -------------------------------------------------------------------------
-
-    // --- LÓGICA DE SELECCIÓN DE TABLA ---
-
-    // -------------------------------------------------------------------------
-
-
-
-    /** Configura el evento de clic en la tabla de Salidas para cargar el formulario. */
-
-    private void configurarEventoTablaSalida() {
-
+    private void configurarEventosTablas() {
         jTablaSalida.addMouseListener(new MouseAdapter() {
-
             @Override
-
             public void mouseClicked(MouseEvent e) {
-
-                if (e.getClickCount() == 1) {
-
-                    cargarFormularioDesdeTablaSalida();
-
-                }
-
+                if (e.getClickCount() == 1) cargarFormularioDesdeTablaSalida();
             }
-
         });
-
-    }
-
-    private void configurarEventoTablaEntrada() {
 
         jTableEntrada_Inventario.addMouseListener(new MouseAdapter() {
-
             @Override
-
             public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) cargarFormularioDesdeTablaEntrada();
+            }
+        });
+    }
 
-                if (e.getClickCount() == 1) {
+    private void cargarCombos() {
+        try {
+            DefaultComboBoxModel<Articulo> modeloArticulos = new DefaultComboBoxModel<>();
+            List<Articulo> articulos = articuloControl.obtenerTodosArticulos();
+            for (Articulo a : articulos) modeloArticulos.addElement(a);
+            jCBArticuloSalida.setModel(modeloArticulos);
 
-                    cargarFormularioDesdeTablaEntrada();
+            DefaultComboBoxModel<Ubicacion> modeloUbicaciones = new DefaultComboBoxModel<>();
+            List<Ubicacion> ubicaciones = ubicacionDAO.listar();
+            for (Ubicacion u : ubicaciones) modeloUbicaciones.addElement(u);
+            jCBUbicacionOrigen.setModel(modeloUbicaciones);
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error cargando datos: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
-                }
+    private void onRegistrarSalida() {
+        try {
+            Articulo art = (Articulo) jCBArticuloSalida.getSelectedItem();
+            Ubicacion ubicOrigen = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
+            int cantidadInt = parseIntSafe(jFTCantidadSalida.getText());
+            double cantidadDouble = (double) cantidadInt;
+            String motivo = jFTMotivo.getText().trim();
 
+            if (art == null || ubicOrigen == null) {
+                JOptionPane.showMessageDialog(this, "Selecciona artículo y ubicación origen.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (cantidadInt <= 0) {
+                JOptionPane.showMessageDialog(this, "Cantidad inválida (>0).", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (motivo.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Debes indicar un motivo de salida.", "Validación", JOptionPane.WARNING_MESSAGE);
+                return;
             }
 
-        });
+            if (!this.inventarioDAO.existeStockArticuloEnUbicacion(art.getIdArticulo(), ubicOrigen.getId_ubicacion())) {
+                JOptionPane.showMessageDialog(this, "El artículo no se encuentra registrado en la ubicación de origen.", "Error de Ubicación", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
 
-    }
+            double stockDisponible = this.inventarioDAO.getStockPorUbicacion(art.getIdArticulo(), ubicOrigen.getId_ubicacion());
+            if (stockDisponible < cantidadDouble) {
+                JOptionPane.showMessageDialog(this, "Stock insuficiente. Disponible: " + String.format("%.2f", stockDisponible), "Error de Stock", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
 
+            boolean ok = movimientoControl.registrarSalida(art.getIdArticulo(), cantidadInt, ubicOrigen.getId_ubicacion(), motivo);
 
-
-    /** ⭐ NUEVO MÉTODO: Carga los datos de la fila seleccionada de la tabla de Salidas al formulario. ⭐ */
-
-    private void cargarFormularioDesdeTablaSalida() {
-
-        int fila = jTablaSalida.getSelectedRow();
-
-        if (fila >= 0) {
-
-            DefaultTableModel model = (DefaultTableModel) jTablaSalida.getModel();
-
-
-
-            // 1. Obtener el ID del movimiento (Columna 0)
-
-            Object idObj = model.getValueAt(fila, 0);
-
-            Long idMov = (idObj instanceof Integer) ? ((Integer) idObj).longValue() : (Long) idObj;
-
-            this.idMovimientoSeleccionado = idMov;
-
-            
-
-            // 2. Obtener valores
-
-            String nombreArticulo = (String) model.getValueAt(fila, 1);
-
-            String nombreUbicacionOrigen = (String) model.getValueAt(fila, 3);
-
-            String motivo = (String) model.getValueAt(fila, 4);
-
-            
-
-            // 3. Cargar campos de Salida
-
-            jFTCantidadSalida.setText(model.getValueAt(fila, 2).toString());
-
-            jFTMotivo.setText(motivo.equals("-") ? "" : motivo);
-
-            
-
-            // ⭐ AÑADIDO: Limpiar campos de Entrada (si existen en el formulario)
-
-            // Esto asegura que al cambiar de Entrada a Salida, los campos se vacíen.
-
-            limpiarCamposEntradaAsumidos(); 
-
-
-
-            // 4. Seleccionar en Comboboxes
-
-            seleccionarEnComboBox(jCBArticuloSalida, nombreArticulo);
-
-            seleccionarEnComboBox(jCBUbicacionOrigen, nombreUbicacionOrigen);
-
-        }
-
-    }
-
-    
-
-    /** ⭐ MODIFICADO: Carga SÓLO los datos necesarios de la tabla de Entradas al formulario. ⭐ */
-
-    private void cargarFormularioDesdeTablaEntrada() {
-
-        int fila = jTableEntrada_Inventario.getSelectedRow();
-
-        if (fila >= 0) {
-
-            DefaultTableModel model = (DefaultTableModel) jTableEntrada_Inventario.getModel();
-
-
-
-            // 1. Obtener el ID del movimiento (Columna 0) de forma robusta
-
-            Object idObj = model.getValueAt(fila, 0);
-
-            Long idMov = null;
-
-            
-
-            // ⭐ CORRECCIÓN DEL CASTING ⭐
-
-            if (idObj instanceof Long) {
-
-                idMov = (Long) idObj;
-
-            } else if (idObj instanceof Integer) {
-
-                idMov = ((Integer) idObj).longValue();
-
-            } else if (idObj instanceof String) {
-
-                // Si accidentalmente se leyó como String, intenta parsearlo.
-
-                try {
-
-                     idMov = Long.parseLong((String)idObj);
-
-                } catch (NumberFormatException nfe) {
-
-                     JOptionPane.showMessageDialog(this, "Error de datos: ID de movimiento no es un número válido.",
-
-                            "Error de Conversión", JOptionPane.ERROR_MESSAGE);
-
-                     return; 
-
-                }
-
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Salida registrada correctamente.", "OK", JOptionPane.INFORMATION_MESSAGE);
+                jFTCantidadSalida.setText("");
+                jFTMotivo.setText("");
+                cargarTablaSalidas();
             } else {
-
-                // Si el ID es null o inesperado, cancelamos la carga.
-
-                return;
-
+                JOptionPane.showMessageDialog(this, "No se pudo registrar la salida.", "Error", JOptionPane.ERROR_MESSAGE);
             }
 
-            
-
-            this.idMovimientoSeleccionado = idMov;
-
-            
-
-            // 2. Obtener valores necesarios (Índices de la tabla de Entrada)
-
-            String nombreArticulo = (String) model.getValueAt(fila, 1);       // Columna 1
-
-            String nombreUbicacionDestino = (String) model.getValueAt(fila, 3); // Columna 3
-
-            
-
-            // 3. Cargar campos comunes
-
-            // La cantidad siempre debe ser un String para jFormattedTextField
-
-            jFTCantidadSalida.setText(model.getValueAt(fila, 2).toString());  // Cantidad (Columna 2)
-
-            
-
-            // 4. Limpiar campos de la Salida y campos específicos de la Entrada (para evitar confusiones)
-
-            jFTMotivo.setText(""); // El campo Motivo es específico de Salida, se limpia.
-
-            limpiarCamposEntradaAsumidos(); // Limpia Costo, Vencimiento y Entregado Por
-
-
-
-            // 5. Seleccionar en Comboboxes
-
-            seleccionarEnComboBox(jCBArticuloSalida, nombreArticulo);
-
-            // La Ubicación Destino de la entrada se carga en el combo de Ubicación Origen del formulario.
-
-            seleccionarEnComboBox(jCBUbicacionOrigen, nombreUbicacionDestino);
-
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error SQL: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-
     }
 
-    
-
-    /** ⭐ NUEVO MÉTODO AUXILIAR: Para limpiar campos específicos de Entrada. ⭐ */
-
-    private void limpiarCamposEntradaAsumidos() {
-
-        // Asegúrate de que los nombres de los campos coincidan con tu diseño
-
-        // if (jFTCosto != null) jFTCosto.setText("");
-
-        // if (jFTFechaVencimiento != null) jFTFechaVencimiento.setText("");
-
-        // if (jFTEntregadoPor != null) jFTEntregadoPor.setText("");
-
-        
-
-        // ⭐ Si no tienes estos campos, deja este método vacío. ⭐
-
-    }
-
-    
-
-    /** Método auxiliar para seleccionar un ítem por su nombre en un JComboBox */
-
-    private <T> void seleccionarEnComboBox(JComboBox<T> combo, String nombre) {
-
-        if (nombre == null) return;
-
-        DefaultComboBoxModel<T> model = (DefaultComboBoxModel<T>) combo.getModel();
-
-        for (int i = 0; i < model.getSize(); i++) {
-
-            T item = model.getElementAt(i);
-
-            // Asume que el método toString() del objeto (Articulo/Ubicacion) devuelve el nombre
-
-            if (item != null && item.toString().equals(nombre)) {
-
-                combo.setSelectedItem(item);
-
-                return;
-
-            }
-
-        }
-
-    }
-
-
-
-    private int parseIntSafe(String s) {
-
-        try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); }
-
-        catch (Exception e) { return 0; }
-
-    }
-
-
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        jPanel1 = new javax.swing.JPanel();
-        jPanel2 = new javax.swing.JPanel();
-        jPanel3 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
-        bVolver = new javax.swing.JButton();
-        jPanel4 = new javax.swing.JPanel();
-        jLabel3 = new javax.swing.JLabel();
-        jLabel15 = new javax.swing.JLabel();
-        jLabel16 = new javax.swing.JLabel();
-        jLabel17 = new javax.swing.JLabel();
-        jFTMotivo = new javax.swing.JFormattedTextField();
-        jCBUbicacionOrigen = new javax.swing.JComboBox<>();
-        jFTCantidadSalida = new javax.swing.JFormattedTextField();
-        jCBArticuloSalida = new javax.swing.JComboBox<>();
-        jLabel18 = new javax.swing.JLabel();
-        jPanel7 = new javax.swing.JPanel();
-        bRegistrarSalida = new javax.swing.JButton();
-        bConsultarSalida = new javax.swing.JButton();
-        bVerTodo = new javax.swing.JButton();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        jTablaSalida = new javax.swing.JTable();
-        jScrollPane2 = new javax.swing.JScrollPane();
-        jTableEntrada_Inventario = new javax.swing.JTable();
-        jPanel5 = new javax.swing.JPanel();
-        jLabel2 = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
-        jPanel6 = new javax.swing.JPanel();
-        jLabel6 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        jPanel1.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel2.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel2.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jPanel3.setBackground(new java.awt.Color(13, 51, 131));
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
-        );
-
-        jPanel2.add(jPanel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 116, 1367, -1));
-
-        jLabel1.setFont(new java.awt.Font("Segoe UI Black", 1, 20)); // NOI18N
-        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("Baja de Mobiliario");
-        jPanel2.add(jLabel1, new org.netbeans.lib.awtextra.AbsoluteConstraints(-2, 0, 800, 60));
-
-        jButton1.setBackground(new java.awt.Color(13, 51, 131));
-        jButton1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton1.setForeground(new java.awt.Color(255, 255, 255));
-        jButton1.setText("Registrar");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton1, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton4.setBackground(new java.awt.Color(13, 51, 131));
-        jButton4.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton4.setForeground(new java.awt.Color(255, 255, 255));
-        jButton4.setText("Registrar");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton4, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 340, 170, 40));
-
-        jButton5.setBackground(new java.awt.Color(13, 51, 131));
-        jButton5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jButton5.setForeground(new java.awt.Color(255, 255, 255));
-        jButton5.setText("Registrar");
-        jButton5.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton5ActionPerformed(evt);
-            }
-        });
-        jPanel2.add(jButton5, new org.netbeans.lib.awtextra.AbsoluteConstraints(40, 330, 170, 40));
-
-        bVolver.setBackground(new java.awt.Color(13, 51, 131));
-        bVolver.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVolver.setForeground(new java.awt.Color(255, 255, 255));
-        bVolver.setText("Volver");
-        bVolver.setBorder(null);
-        bVolver.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVolverActionPerformed(evt);
-            }
-        });
-        jPanel2.add(bVolver, new org.netbeans.lib.awtextra.AbsoluteConstraints(630, 0, 170, 40));
-
-        jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 800, 60));
-
-        jPanel4.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
-        jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
-
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jPanel4.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 350, 57));
-
-        jLabel15.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel15.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel15.setText("Artículo:");
-        jPanel4.add(jLabel15, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 70, 150, 51));
-
-        jLabel16.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel16.setText("Ubicacion Origen:");
-        jPanel4.add(jLabel16, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 230, 150, 51));
-
-        jLabel17.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel17.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel17.setText("Motivo:");
-        jPanel4.add(jLabel17, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 140, 51));
-
-        jFTMotivo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTMotivoActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTMotivo, new org.netbeans.lib.awtextra.AbsoluteConstraints(160, 310, 180, 50));
-
-        jPanel4.add(jCBUbicacionOrigen, new org.netbeans.lib.awtextra.AbsoluteConstraints(160, 230, 180, 48));
-
-        jFTCantidadSalida.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jFTCantidadSalidaActionPerformed(evt);
-            }
-        });
-        jPanel4.add(jFTCantidadSalida, new org.netbeans.lib.awtextra.AbsoluteConstraints(160, 150, 180, 50));
-
-        jPanel4.add(jCBArticuloSalida, new org.netbeans.lib.awtextra.AbsoluteConstraints(160, 70, 180, 48));
-
-        jLabel18.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        jLabel18.setText("Cantidad:");
-        jPanel4.add(jLabel18, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 150, 150, 51));
-
-        jPanel7.setBackground(new java.awt.Color(255, 255, 255));
-        jPanel7.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 50, 5));
-
-        bRegistrarSalida.setBackground(new java.awt.Color(13, 51, 131));
-        bRegistrarSalida.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bRegistrarSalida.setForeground(new java.awt.Color(255, 255, 255));
-        bRegistrarSalida.setText("Confirmar");
-        bRegistrarSalida.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bRegistrarSalidaActionPerformed(evt);
-            }
-        });
-        jPanel7.add(bRegistrarSalida);
-
-        bConsultarSalida.setBackground(new java.awt.Color(13, 51, 131));
-        bConsultarSalida.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bConsultarSalida.setForeground(new java.awt.Color(255, 255, 255));
-        bConsultarSalida.setText("Consultar");
-        bConsultarSalida.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bConsultarSalidaActionPerformed(evt);
-            }
-        });
-        jPanel7.add(bConsultarSalida);
-
-        bVerTodo.setBackground(new java.awt.Color(13, 51, 131));
-        bVerTodo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        bVerTodo.setForeground(new java.awt.Color(255, 255, 255));
-        bVerTodo.setText("Ver Todo");
-        bVerTodo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bVerTodoActionPerformed(evt);
-            }
-        });
-        jPanel7.add(bVerTodo);
-
-        jPanel4.add(jPanel7, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 370, 350, 110));
-
-        jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 60, 350, 480));
-
-        jTablaSalida.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Articulo", "Cantidad", "Motivo", "Fecha"
-            }
-        ));
-        jScrollPane1.setViewportView(jTablaSalida);
-
-        jPanel1.add(jScrollPane1, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 100, 450, 200));
-
-        jTableEntrada_Inventario.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null},
-                {null, null, null, null, null, null, null}
-            },
-            new String [] {
-                "Articulo", "Cantidad", "Ubicación", "Costo", "Vencimiento", "Entregado", "Fecha"
-            }
-        ));
-        jScrollPane2.setViewportView(jTableEntrada_Inventario);
-
-        jPanel1.add(jScrollPane2, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 340, 450, 200));
-
-        jPanel5.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel5.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
-
-        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel2.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Tabla de Salidas:");
-
-        javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
-        jPanel5.setLayout(jPanel5Layout);
-        jPanel5Layout.setHorizontalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
-                .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 456, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, Short.MAX_VALUE))
-        );
-        jPanel5Layout.setVerticalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 38, Short.MAX_VALUE)
-        );
-
-        jPanel1.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 60, 450, 40));
-
-        jLabel4.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel4.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel4.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel4.setText("Tabla de Salidas:");
-        jPanel1.add(jLabel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 60, 450, 40));
-
-        jPanel6.setBackground(new java.awt.Color(13, 51, 131));
-        jPanel6.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
-
-        jLabel6.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel6.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel6.setText("Tabla de Articulos en el Inventario:");
-
-        javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
-        jPanel6.setLayout(jPanel6Layout);
-        jPanel6Layout.setHorizontalGroup(
-            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jLabel6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 448, Short.MAX_VALUE)
-        );
-        jPanel6Layout.setVerticalGroup(
-            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jLabel6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 38, Short.MAX_VALUE)
-        );
-
-        jPanel1.add(jPanel6, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 300, 450, 40));
-
-        jLabel5.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel5.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel5.setText("Tabla de Salidas:");
-        jPanel1.add(jLabel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(350, 310, 450, 30));
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void jFTMotivoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTMotivoActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTMotivoActionPerformed
-
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton1ActionPerformed
-
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton4ActionPerformed
-
-    private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton5ActionPerformed
-
-    private void bVolverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVolverActionPerformed
-        // TODO add your handling code here:
-        this.dispose();
-        // Pasa el usuario de vuelta al menú principal
-        new PrincipalVista(this.usuarioActual).setVisible(true);
-    }//GEN-LAST:event_bVolverActionPerformed
-
-    private void bRegistrarSalidaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bRegistrarSalidaActionPerformed
-
-    }//GEN-LAST:event_bRegistrarSalidaActionPerformed
-
-    private void jFTCantidadSalidaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jFTCantidadSalidaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jFTCantidadSalidaActionPerformed
-
-    private void bVerTodoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bVerTodoActionPerformed
-        // TODO add your handling code here:
+    private void cargarTablaSalidas() {
         try {
-        // 1. Limpiar la selección de los ComboBoxes (para enviar null al DAO)
-        // Usamos los nombres de componentes que identificamos en la consulta:
-        jCBArticuloSalida.setSelectedItem(null); 
-        jCBUbicacionOrigen.setSelectedItem(null);
+            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación", "Motivo", "Entregado Por", "Fecha/Hora"};
+            
+            modeloTablaSalida = new DefaultTableModel(columnas, 0) {
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    if (columnIndex == 0) return Long.class;
+                    if (columnIndex == 2) return Integer.class;
+                    return Object.class;
+                }
+                @Override
+                public boolean isCellEditable(int row, int column) { return false; }
+            };
 
-        // 2. Llamar al método de consulta con filtros nulos (que es equivalente a listar todo)
-        // Se asume que 'movimientoControl' es la instancia correcta del controlador.
-        List<Movimiento> lista = movimientoControl.buscarSalidas(null, null);
+            jTablaSalida.setModel(modeloTablaSalida);
+            jTablaSalida.getColumnModel().getColumn(0).setMinWidth(0);
+            jTablaSalida.getColumnModel().getColumn(0).setMaxWidth(0);
+            jTablaSalida.getColumnModel().getColumn(0).setWidth(0);
 
-        // 3. Limpiar la tabla y cargar la lista completa
-        DefaultTableModel model = (DefaultTableModel) jTablaSalida.getModel(); // Asegúrate de usar jTablaSalida
-        model.setRowCount(0);
-
-        for (Movimiento m : lista) {
-            // Lógica para llenar la fila, similar a tu método de consulta de Salida
-            model.addRow(new Object[]{
-                m.getIdMovimiento(), 
-                m.getNombreArticulo(),
-                m.getCantidad(),
-                m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-", // Origen (de donde salió)
-                (m.getMotivo() != null ? m.getMotivo() : "-"), // Motivo de la salida
-                m.getFechaHora()
-            });
-        }
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error al cargar todas las salidas: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-    }//GEN-LAST:event_bVerTodoActionPerformed
-
-    private void bConsultarSalidaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bConsultarSalidaActionPerformed
-        // TODO add your handling code here:
-        try {
-            DefaultTableModel model = (DefaultTableModel) jTablaSalida.getModel();
-            model.setRowCount(0);
-
-            // 1. Obtener filtros y IDs
-            Articulo articulo = (Articulo) jCBArticuloSalida.getSelectedItem();
-            Ubicacion ubicacion = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
-
-            // Los filtros deben incluir null si el combo no tiene un ítem seleccionado ("TODOS")
-            Integer idArticulo = (articulo != null) ? articulo.getIdArticulo() : null;
-            Integer idUbicacion = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
-
-            // 2. Llamada al controlador para buscar SALIDAS
-            // Se asume que MovimientoControlador tiene un método 'buscarSalidas' similar a 'buscarTraslados'.
-            List<Movimiento> lista = movimientoControl.buscarSalidas(idArticulo, idUbicacion);
-
-            // 3. Manejo de resultados
-            if (lista.isEmpty()) {
-                String msg = "No se encontraron salidas con los filtros aplicados:\n";
-                msg += "Artículo: " + (articulo != null ? articulo.getNombre() : "TODOS") + "\n";
-                msg += "Ubicación Origen: " + (ubicacion != null ? ubicacion.getNombre() : "TODAS");
-                JOptionPane.showMessageDialog(this, msg, "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-
-            // 4. Llenar la tabla jTablaSalida
-            for (Movimiento m : lista) {
-                model.addRow(new Object[]{
-                    m.getIdMovimiento(), // Columna 0
-                    m.getNombreArticulo(),
-                    m.getCantidad(),
-                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-", // Ubicación (Origen)
+            List<Movimiento> listaSalidas = movimientoControl.obtenerSalidas();
+            for (Movimiento m : listaSalidas) {
+                modeloTablaSalida.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
                     m.getMotivo() != null ? m.getMotivo() : "-",
-                    m.getEntregado() != null ? m.getEntregado() : "-",
-                    m.getFechaHora()
+                    m.getEntregado() != null ? m.getEntregado() : "-", m.getFechaHora()
                 });
             }
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error al consultar salidas: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }//GEN-LAST:event_bConsultarSalidaActionPerformed
+    }
 
-    /**
-     * @param args the command line arguments
-     */
+    private void cargarTablaEntradas() {
+        try {
+            String[] columnas = {"ID", "Artículo", "Cantidad", "Ubicación Destino", "Costo", "Vencimiento", "Entregado Por", "Fecha/Hora"};
+            
+            modeloTablaEntrada = new DefaultTableModel(columnas, 0) {
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    if (columnIndex == 0) return Long.class;
+                    if (columnIndex == 2) return Integer.class;
+                    return Object.class;
+                }
+                @Override
+                public boolean isCellEditable(int row, int column) { return false; }
+            };
 
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton bConsultarSalida;
-    private javax.swing.JButton bRegistrarSalida;
-    private javax.swing.JButton bVerTodo;
-    private javax.swing.JButton bVolver;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JComboBox<Modelo.Articulo> jCBArticuloSalida;
-    private javax.swing.JComboBox<Modelo.Ubicacion> jCBUbicacionOrigen;
-    private javax.swing.JFormattedTextField jFTCantidadSalida;
-    private javax.swing.JFormattedTextField jFTMotivo;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel15;
-    private javax.swing.JLabel jLabel16;
-    private javax.swing.JLabel jLabel17;
-    private javax.swing.JLabel jLabel18;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
-    private javax.swing.JPanel jPanel6;
-    private javax.swing.JPanel jPanel7;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane2;
-    private javax.swing.JTable jTablaSalida;
-    private javax.swing.JTable jTableEntrada_Inventario;
-    // End of variables declaration//GEN-END:variables
+            jTableEntrada_Inventario.setModel(modeloTablaEntrada);
+            jTableEntrada_Inventario.getColumnModel().getColumn(0).setMinWidth(0);
+            jTableEntrada_Inventario.getColumnModel().getColumn(0).setMaxWidth(0);
+            jTableEntrada_Inventario.getColumnModel().getColumn(0).setWidth(0);
+
+            List<Movimiento> listaEntradas = movimientoControl.obtenerEntradas();
+            for (Movimiento m : listaEntradas) {
+                modeloTablaEntrada.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionDestino() != null ? m.getNombreUbicacionDestino() : "-",
+                    m.getCosto() != null ? String.format("%.2f", m.getCosto()) : "-",
+                    (m.getFechaVencimiento() != null ? m.getFechaVencimiento() : "-"),
+                    (m.getEntregado() != null ? m.getEntregado() : "-"), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void cargarFormularioDesdeTablaSalida() {
+        int fila = jTablaSalida.getSelectedRow();
+        if (fila >= 0) {
+            Object idObj = modeloTablaSalida.getValueAt(fila, 0);
+            this.idMovimientoSeleccionado = (idObj instanceof Integer) ? ((Integer) idObj).longValue() : (Long) idObj;
+
+            String nombreArticulo = (String) modeloTablaSalida.getValueAt(fila, 1);
+            String nombreUbicacion = (String) modeloTablaSalida.getValueAt(fila, 3);
+            String motivo = (String) modeloTablaSalida.getValueAt(fila, 4);
+
+            jFTCantidadSalida.setText(modeloTablaSalida.getValueAt(fila, 2).toString());
+            jFTMotivo.setText(motivo.equals("-") ? "" : motivo);
+
+            seleccionarEnComboBox(jCBArticuloSalida, nombreArticulo);
+            seleccionarEnComboBox(jCBUbicacionOrigen, nombreUbicacion);
+        }
+    }
+
+    private void cargarFormularioDesdeTablaEntrada() {
+        int fila = jTableEntrada_Inventario.getSelectedRow();
+        if (fila >= 0) {
+            Object idObj = modeloTablaEntrada.getValueAt(fila, 0);
+            if (idObj instanceof Long) this.idMovimientoSeleccionado = (Long) idObj;
+            else if (idObj instanceof Integer) this.idMovimientoSeleccionado = ((Integer) idObj).longValue();
+
+            String nombreArticulo = (String) modeloTablaEntrada.getValueAt(fila, 1);
+            String nombreUbicacionDestino = (String) modeloTablaEntrada.getValueAt(fila, 3);
+
+            jFTCantidadSalida.setText(modeloTablaEntrada.getValueAt(fila, 2).toString());
+            jFTMotivo.setText(""); 
+
+            seleccionarEnComboBox(jCBArticuloSalida, nombreArticulo);
+            seleccionarEnComboBox(jCBUbicacionOrigen, nombreUbicacionDestino);
+        }
+    }
+
+    private void bConsultarSalidaActionPerformed(ActionEvent evt) {
+        try {
+            modeloTablaSalida.setRowCount(0);
+            Articulo articulo = (Articulo) jCBArticuloSalida.getSelectedItem();
+            Ubicacion ubicacion = (Ubicacion) jCBUbicacionOrigen.getSelectedItem();
+            Integer idArt = (articulo != null) ? articulo.getIdArticulo() : null;
+            Integer idUbi = (ubicacion != null) ? ubicacion.getId_ubicacion() : null;
+
+            List<Movimiento> lista = movimientoControl.buscarSalidas(idArt, idUbi);
+
+            if (lista.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No se encontraron salidas.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            for (Movimiento m : lista) {
+                modeloTablaSalida.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
+                    m.getMotivo() != null ? m.getMotivo() : "-",
+                    m.getEntregado() != null ? m.getEntregado() : "-", m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void bVerTodoActionPerformed(ActionEvent evt) {
+        try {
+            jCBArticuloSalida.setSelectedItem(null);
+            jCBUbicacionOrigen.setSelectedItem(null);
+            List<Movimiento> lista = movimientoControl.buscarSalidas(null, null);
+            modeloTablaSalida.setRowCount(0);
+            for (Movimiento m : lista) {
+                modeloTablaSalida.addRow(new Object[]{
+                    m.getIdMovimiento(), m.getNombreArticulo(), m.getCantidad(),
+                    m.getNombreUbicacionOrigen() != null ? m.getNombreUbicacionOrigen() : "-",
+                    (m.getMotivo() != null ? m.getMotivo() : "-"),
+                    (m.getEntregado() != null ? m.getEntregado() : "-"), m.getFechaHora()
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void bExportarActionPerformed(ActionEvent evt) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Guardar Reporte de Movimientos");
+        fileChooser.setSelectedFile(new File("Reporte_Inventario_Movimientos.pdf"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getAbsolutePath().endsWith(".pdf")) fileToSave = new File(fileToSave.getAbsolutePath() + ".pdf");
+
+            Document document = new Document();
+            try {
+                PdfWriter.getInstance(document, new FileOutputStream(fileToSave));
+                document.open();
+
+                Paragraph title = new Paragraph("Reporte Consolidado de Inventario", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, BaseColor.DARK_GRAY));
+                title.setAlignment(Paragraph.ALIGN_CENTER);
+                title.setSpacingAfter(30);
+                document.add(title);
+
+                // Exportar Tabla Salidas
+                exportarTablaPDF(document, jTablaSalida, "Sección 1: Movimientos de Salida", new BaseColor(230, 126, 34));
+                
+                document.add(new Paragraph("\n"));
+                document.add(new Paragraph("-----------------------------------------------------------------------"));
+                document.add(new Paragraph("\n"));
+
+                // Exportar Tabla Entradas
+                exportarTablaPDF(document, jTableEntrada_Inventario, "Sección 2: Inventario de Entrada", new BaseColor(46, 204, 113));
+
+                document.add(new Paragraph("\n"));
+                JOptionPane.showMessageDialog(this, "Reporte exportado exitosamente.");
+
+            } catch (Exception ex) {
+                Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, null, ex);
+                JOptionPane.showMessageDialog(this, "Error al exportar: " + ex.getMessage());
+            } finally {
+                if (document.isOpen()) document.close();
+            }
+        }
+    }
+
+    // ⭐ MÉTODO CORREGIDO para evitar conflicto entre java.awt.Font y com.itextpdf.text.Font ⭐
+    private void exportarTablaPDF(Document document, JTable table, String title, BaseColor color) throws DocumentException {
+        // Usamos nombre completo de la clase Font de iText
+        com.itextpdf.text.Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BaseColor.WHITE);
+        com.itextpdf.text.Font fontData = FontFactory.getFont(FontFactory.HELVETICA, 9, BaseColor.BLACK);
+        
+        Paragraph pTitle = new Paragraph(title, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, color));
+        pTitle.setSpacingAfter(10);
+        document.add(pTitle);
+
+        int colCount = table.getColumnCount();
+        int visibleCols = colCount - 1; 
+        
+        if (visibleCols > 0) {
+            PdfPTable pdfTable = new PdfPTable(visibleCols);
+            pdfTable.setWidthPercentage(100);
+
+            for (int i = 1; i < colCount; i++) {
+                PdfPCell cell = new PdfPCell(new Phrase(table.getColumnName(i), fontHeader));
+                cell.setBackgroundColor(color);
+                cell.setHorizontalAlignment(PdfPCell.ALIGN_CENTER);
+                pdfTable.addCell(cell);
+            }
+
+            for (int rows = 0; rows < table.getRowCount(); rows++) {
+                for (int cols = 1; cols < colCount; cols++) {
+                    Object val = table.getValueAt(rows, cols);
+                    PdfPCell cell = new PdfPCell(new Phrase(val != null ? val.toString() : "", fontData));
+                    pdfTable.addCell(cell);
+                }
+            }
+            document.add(pdfTable);
+        } else {
+            document.add(new Paragraph("No hay datos visibles."));
+        }
+    }
+
+    private void bVolverActionPerformed(ActionEvent evt) {
+        this.dispose();
+        new PrincipalVista(this.usuarioActual).setVisible(true);
+    }
+
+    // --- Utilidades ---
+    private <T> void seleccionarEnComboBox(JComboBox<T> combo, String nombre) {
+        if (nombre == null) return;
+        DefaultComboBoxModel<T> model = (DefaultComboBoxModel<T>) combo.getModel();
+        for (int i = 0; i < model.getSize(); i++) {
+            T item = model.getElementAt(i);
+            if (item != null && item.toString().equals(nombre)) {
+                combo.setSelectedItem(item);
+                return;
+            }
+        }
+    }
+
+    private int parseIntSafe(String s) {
+        try { return (s == null || s.trim().isEmpty()) ? 0 : Integer.parseInt(s.trim()); } catch (Exception e) { return 0; }
+    }
 }
