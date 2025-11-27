@@ -2,14 +2,7 @@ package Modelo;
 
 import java.util.List;
 
-/**
- * Excepción personalizada que se lanza cuando se intenta registrar una entrada
- * y la ubicación de destino no tiene suficiente capacidad restante.
- * <p>
- * Transporta la información necesaria para que la Vista pueda 
- * informar al usuario y ofrecer sugerencias.
- */
-// Usamos RuntimeException para no forzar "throws" en métodos intermedios.
+
 public class CapacidadInsuficienteException extends RuntimeException {
 
     private final List<Ubicacion> sugerencias;
@@ -25,7 +18,7 @@ public class CapacidadInsuficienteException extends RuntimeException {
         this.sugerencias = sugerencias;
     }
 
-    // Getters para que la Vista pueda construir el mensaje de error
+    
     public List<Ubicacion> getSugerencias() {
         return sugerencias;
     }

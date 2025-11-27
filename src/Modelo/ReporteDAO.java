@@ -11,13 +11,11 @@ import java.time.LocalDateTime;
 
 public class ReporteDAO {
     
-    /**
-     * Obtiene el historial de auditoría del sistema mediante un LEFT JOIN.
-     */
+
     public List<LogAuditoriaSistema> obtenerLogAuditoriaSistema() {
         List<LogAuditoriaSistema> listaLog = new ArrayList<>();
         
-        // Consulta SQL limpia, sin espacios en blanco innecesarios al inicio/final de las líneas.
+        
         String sql = "SELECT "
                    + "    LT.fecha_hora AS FechaHora, "
                    + "    US.nombre_usuario AS Usuario, "
@@ -36,7 +34,7 @@ public class ReporteDAO {
              Statement st = con.createStatement(); 
              ResultSet rs = st.executeQuery(sql)) {
 
-            // Verificación de existencia de filas antes de iterar
+            
             if (!rs.isBeforeFirst() && rs.getRow() == 0) { 
                  System.out.println("DEBUG DAO: La base de datos devolvió cero registros para log_transacciones.");
             }
@@ -60,7 +58,7 @@ public class ReporteDAO {
             System.out.println("DEBUG DAO: Registros mapeados exitosamente: " + listaLog.size());
 
         } catch (Exception e) {
-            // Este catch se activaría si falla la conexión, la ejecución SQL o si hay un problema de permisos/JDBC.
+            
             System.err.println("FATAL ERROR - No se pudo obtener el Log de Auditoría:");
             e.printStackTrace();
         }

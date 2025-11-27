@@ -3,21 +3,10 @@ package Modelo;
 import util.ConexionBD;
 import java.sql.*;
 
-/**
- * UsuarioDAO: acceso a datos únicamente.
- * - No realiza validaciones de negocio.
- * - No muestra UI ni imprime contraseñas.
- * - Propaga SQLException para que el controlador lo maneje.
- */
+
 public class UsuarioDAO {
 
-    /**
-     * Autentica un usuario consultando la DB. Lanza SQLException en caso de error.
-     * @param login nombre de usuario
-     * @param password contraseña en claro (se compara en la BD con SHA2)
-     * @return Usuario si encuentra uno con esas credenciales, o null si no existe
-     * @throws SQLException si ocurre un error de BD
-     */
+
     public Usuario autenticar(String login, String password) throws SQLException {
         String sql = "SELECT u.*, r.nombre_rol AS rol " +
                      "FROM usuario u " +
@@ -28,7 +17,7 @@ public class UsuarioDAO {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, login);
-            stmt.setString(2, password); // La DB aplica SHA2 para comparar
+            stmt.setString(2, password); 
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -37,10 +26,10 @@ public class UsuarioDAO {
                     usuario.setNombreUsuario(rs.getString("nombre_usuario"));
                     usuario.setLogin(rs.getString("login"));
                     usuario.setIdRol(rs.getInt("id_rol"));
-                    // Si el ResultSet contiene el nombre de rol, asignarlo si existe el setter
+                    
                     try {
                         usuario.setRol(rs.getString("rol"));
-                    } catch (Exception ignore) { /* si no existe el setter, lo ignoramos */ }
+                    } catch (Exception ignore) { /* si no existe el setter, lo ignora */ }
                     return usuario;
                 } else {
                     return null;

@@ -5,15 +5,13 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * DAO para Ubicaciones — maneja persistencia en BD.
- */
+
 public class UbicacionDAO {
 
     public boolean crear(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // El SQL se actualiza para incluir 'deshabilitado'
+        
         String sql = "INSERT INTO ubicacion (nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -41,7 +39,7 @@ public class UbicacionDAO {
     public boolean actualizar(Ubicacion u) throws SQLException {
         u.setCapacidad(u.getAltura() * u.getAnchura() * u.getProfundidad());
         
-        // El SQL se actualiza para incluir 'deshabilitado' en el SET
+        
         String sql = "UPDATE ubicacion SET nombre=?, altura=?, anchura=?, profundidad=?, capacidad=?, descripcion=?, deshabilitado=? WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -58,7 +56,7 @@ public class UbicacionDAO {
         }
     }
 
-    // ELIMINACIÓN FÍSICA (Hard Delete): Se mantiene, pero se recomienda usar soft-delete.
+    
     public boolean eliminar(int id_ubicacion) throws SQLException {
         String sql = "DELETE FROM ubicacion WHERE id_ubicacion=?";
         try (Connection con = ConexionBD.conectar();
@@ -68,10 +66,7 @@ public class UbicacionDAO {
         }
     }
     
-    // ⭐ Método para Soft Delete/Habilitar ⭐
-    /**
-     * Actualiza el estado de deshabilitado de una ubicación.
-     */
+
     public boolean actualizarEstado(int idUbicacion, boolean deshabilitar) throws SQLException {
         String sql = "UPDATE ubicacion SET deshabilitado = ? WHERE id_ubicacion = ?";
         try (Connection con = ConexionBD.conectar();
@@ -85,7 +80,7 @@ public class UbicacionDAO {
         }
     }
     
-    // --- Mapeo y Listado ---
+
 
     public Ubicacion obtenerPorId(int id_ubicacion) throws SQLException {
         // Seleccionar 'deshabilitado'
@@ -102,7 +97,7 @@ public class UbicacionDAO {
 
     public List<Ubicacion> listar() throws SQLException {
         List<Ubicacion> res = new ArrayList<>();
-        // Seleccionar 'deshabilitado'
+        
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion ORDER BY nombre";
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -116,7 +111,7 @@ public class UbicacionDAO {
     
     public List<Ubicacion> buscar(String nombre) throws SQLException {
         List<Ubicacion> lista = new ArrayList<>();
-        // Seleccionar 'deshabilitado'
+        
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE nombre LIKE ?";
 
         try (Connection con = ConexionBD.conectar();
@@ -133,7 +128,7 @@ public class UbicacionDAO {
     
     public List<Ubicacion> listarConEspacioSuficiente(double espacioRequerido, int idUbicacionAExcluir) throws SQLException {
         List<Ubicacion> res = new ArrayList<>();
-        // Excluir ubicaciones deshabilitadas y la actual
+        
         String sql = "SELECT id_ubicacion, nombre, altura, anchura, profundidad, capacidad, capacidad_restante, descripcion, deshabilitado FROM ubicacion WHERE capacidad_restante >= ? AND id_ubicacion != ? AND deshabilitado = FALSE ORDER BY nombre";
         
         try (Connection con = ConexionBD.conectar();
@@ -151,15 +146,11 @@ public class UbicacionDAO {
         return res;
     }
 
-    /**
-     * Obtiene el stock total de un artículo en una ubicación específica.
-     */
+
      public int obtenerStockPorArticuloYUbicacion(int idArticulo, int idUbicacion) throws SQLException {
-        // Esta es una implementación ASUMIDA que llama a la función de la DB o realiza la lógica de conteo
-        // (por ejemplo, sumando ENTRADAS y restando SALIDAS y TRASLADOS)
-        // Usamos una función simple de ejemplo, asumiendo que tienes una vista o función de stock en tu DB.
+        
         String sql = "SELECT SUM(stock) FROM vw_stock_por_ubicacion WHERE id_articulo = ? AND id_ubicacion = ?";
-        // NOTA: Si no tienes esta vista, debes usar la lógica de restar entradas y salidas.
+
         
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -176,7 +167,6 @@ public class UbicacionDAO {
         return 0;
     }
     
-    // --- Métodos Auxiliares ---
 
     private Ubicacion mapearUbicacion(ResultSet rs) throws SQLException {
         Ubicacion u = new Ubicacion(
@@ -193,7 +183,6 @@ public class UbicacionDAO {
         return u;
     }
 
-    // ... (Métodos obtenerIdPorNombre y crearSiNoExisteYObtenerId sin cambios funcionales) ...
 
     public Integer obtenerIdPorNombre(String nombre) throws SQLException {
         String sql = "SELECT id_ubicacion FROM ubicacion WHERE nombre = ?";
@@ -217,7 +206,7 @@ public class UbicacionDAO {
         nueva.setAnchura(1);
         nueva.setProfundidad(1);
         nueva.setDescripcion("Creada automáticamente");
-        nueva.setDeshabilitado(false); // Por defecto, una ubicación creada está HABILITADA
+        nueva.setDeshabilitado(false); 
         if (crear(nueva)) return nueva.getId_ubicacion();
         return null;
     }

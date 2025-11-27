@@ -1,27 +1,25 @@
 package Modelo;
 
-/**
- * Modelo de Ubicación con dimensiones físicas.
- */
+
 public class Ubicacion {
     private int id_ubicacion;
     private String nombre;
-    private double altura;       // metros
-    private double anchura;      // metros
-    private double profundidad;  // metros
-    private double capacidad;    // metros cúbicos = altura * anchura * profundidad
-    private double capacidadRestante; // calculada según artículos
+    private double altura;      
+    private double anchura;     
+    private double profundidad; 
+    private double capacidad;    
+    private double capacidadRestante; 
     private String descripcion;
     
-    // ⭐ CAMBIO 1: Nuevo atributo para soft-delete ⭐
+
     private boolean deshabilitado; 
 
     public Ubicacion() {
-        this.deshabilitado = false; // Por defecto, habilitada
+        this.deshabilitado = false; 
     }
 
     public Ubicacion(int id_ubicacion, String nombre, double altura, double anchura, double profundidad, String descripcion) {
-        this(); // Llama al constructor vacío para inicializar deshabilitado = false
+        this(); 
         this.id_ubicacion = id_ubicacion;
         this.nombre = nombre;
         this.altura = altura;
@@ -35,13 +33,13 @@ public class Ubicacion {
         this(0, nombre, altura, anchura, profundidad, descripcion);
     }
     
-    // Constructor completo (usado por DAO al leer la DB)
+    
     public Ubicacion(int id_ubicacion, String nombre, double altura, double anchura, double profundidad, String descripcion, boolean deshabilitado) {
         this(id_ubicacion, nombre, altura, anchura, profundidad, descripcion);
         this.deshabilitado = deshabilitado;
     }
 
-    // --- Getters y Setters ---
+    
     public int getId_ubicacion() { return id_ubicacion; }
     public void setId_ubicacion(int id_ubicacion) { this.id_ubicacion = id_ubicacion; }
 

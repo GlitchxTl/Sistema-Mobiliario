@@ -20,7 +20,7 @@ public class StockDAO{
                 }
             }
         }
-        return 0; // Si no existe registro, stock es 0
+        return 0; 
     }
     
     public void actualizarStock(int idArticulo, int idUbicacion, int cantidadDelta) throws SQLException {

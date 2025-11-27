@@ -1,20 +1,18 @@
-package Modelo; // ⚠️ Ajustar el paquete si la clase DAO está en otro lugar
+package Modelo; 
 
-import Modelo.DatoGrafico; // Para la estadística de Stock
-import Modelo.ValorUbicacionDTO; // Para la estadística de Valor
+import Modelo.DatoGrafico; 
+import Modelo.ValorUbicacionDTO; 
 import util.ConexionBD; 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException; // Asegúrate de importar SQLException
+import java.sql.SQLException; 
 import java.util.ArrayList;
 import java.util.List;
 
 public class EstadisticasDAO {
 
-    // ==========================================================
-    // MÉTODO 1: Obtener Top Stock (EXISTENTE)
-    // ==========================================================
+
     public List<DatoGrafico> obtenerTopStock(int limite, boolean mayorStock) {
         List<DatoGrafico> lista = new ArrayList<>();
         
@@ -23,7 +21,7 @@ public class EstadisticasDAO {
         // Consultamos tu VISTA V_InventarioGeneral
         String sql = "SELECT NombreArticulo, TotalStock FROM V_InventarioGeneral ORDER BY TotalStock " + orden + " LIMIT ?";
 
-        try (Connection con = ConexionBD.conectar(); // ⚠️ Ajusta esta línea a tu método de conexión
+        try (Connection con = ConexionBD.conectar(); 
              PreparedStatement ps = con.prepareStatement(sql)) {
             
             ps.setInt(1, limite);
@@ -42,16 +40,14 @@ public class EstadisticasDAO {
         return lista;
     }
     
-    // ==========================================================
-    // MÉTODO 2: Obtener Valor Total por Ubicación (NUEVO)
-    // ==========================================================
+
     public List<ValorUbicacionDTO> obtenerValorTotalPorUbicacion() throws SQLException {
         
         List<ValorUbicacionDTO> resultados = new ArrayList<>();
-        Connection conn = null; // Usaremos la conexión de tu método existente
+        Connection conn = null;
         
         String SQL_QUERY = 
-            // Reutilizamos la lógica del StockNeto y SaldosConsolidados 
+            
             "WITH StockNeto AS (" +
                 " SELECT M.id_articulo, M.id_ubicacion_destino AS id_ubicacion, " +
                 " SUM(CASE WHEN M.tipo IN ('ENTRADA', 'TRASLADO') THEN M.cantidad ELSE 0 END) AS CantidadEntrada, " +
@@ -73,7 +69,7 @@ public class EstadisticasDAO {
                 " FROM StockNeto " +
                 " GROUP BY id_articulo, id_ubicacion " +
             ") " +
-            // Cálculo final del valor total por ubicación
+            
             "SELECT " +
                 " U.nombre AS NombreUbicacion, " +
                 " SUM(SC.TotalStock * A.costo) AS ValorTotalPorUbicacion " + 
@@ -91,7 +87,7 @@ public class EstadisticasDAO {
                 " ValorTotalPorUbicacion DESC";
 
 
-        // Usamos try-with-resources y la conexión de tu DAO, pero eliminamos el 'conn'
+        
         try (Connection con = ConexionBD.conectar();
              PreparedStatement ps = con.prepareStatement(SQL_QUERY);
              ResultSet rs = ps.executeQuery()) {
@@ -100,7 +96,7 @@ public class EstadisticasDAO {
                 String nombreUbicacion = rs.getString("NombreUbicacion");
                 Double valorTotal = rs.getDouble("ValorTotalPorUbicacion");
 
-                // Manejo de valores nulos si la DB devuelve null
+                
                 if (rs.wasNull()) {
                     valorTotal = 0.0;
                 }
@@ -108,7 +104,7 @@ public class EstadisticasDAO {
                 resultados.add(new ValorUbicacionDTO(nombreUbicacion, valorTotal));
             }
             
-        } // El try-with-resources cierra PreparedStatement, ResultSet y Connection
+        } 
         return resultados;
     }
 }

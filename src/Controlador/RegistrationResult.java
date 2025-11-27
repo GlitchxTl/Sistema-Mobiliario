@@ -1,8 +1,6 @@
 package Controlador;
 
-/**
- * DTO simple para devolver resultado de registro con mensaje.
- */
+
 public class RegistrationResult {
     private final boolean success;
     private final String message;

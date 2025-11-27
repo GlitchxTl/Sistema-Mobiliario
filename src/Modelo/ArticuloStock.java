@@ -1,4 +1,4 @@
-package Modelo; // O tu paquete de modelos
+package Modelo;
 
 public class ArticuloStock {
     private String nombreArticulo;

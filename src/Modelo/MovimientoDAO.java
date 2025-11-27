@@ -9,23 +9,12 @@ public class MovimientoDAO {
 
     private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
 
-    // -------------------------------------------------------------------
-    // --- Insertar Movimiento ---
-    // -------------------------------------------------------------------
-    /**
-     * Inserta un nuevo movimiento utilizando una conexión preexistente.
-     * Esta firma es necesaria para permitir que la operación sea parte de una transacción
-     * manejada por el controlador.
-     * @param conn Conexión de la base de datos (debe ser abierta y gestionada externamente).
-     * @param m Objeto Movimiento a insertar.
-     * @return true si la inserción fue exitosa.
-     * @throws SQLException 
-     */
+    
     public boolean insertarMovimiento(Connection conn, Movimiento m) throws SQLException {
         if (m == null) throw new SQLException("Movimiento nulo");
         if (conn == null) throw new SQLException("Conexión nula"); // Verificación adicional
 
-        // ⭐ CAMBIO: Se usan costo_divisa y costo_bs en lugar de solo costo
+        
         String sql = """
              INSERT INTO movimiento (
                  id_articulo, tipo, cantidad, id_usuario,
@@ -35,7 +24,7 @@ public class MovimientoDAO {
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
              """;
 
-        // Se utiliza la conexión 'conn' pasada por parámetro.
+        
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, m.getIdArticulo());
@@ -52,7 +41,7 @@ public class MovimientoDAO {
             else ps.setInt(6, m.getIdUbicacionDestino());
 
             ps.setString(7, m.getMotivo());
-            // Nota: Se asume que util.util.capitalizar existe
+            
             ps.setString(8, util.util.capitalizar(m.getEntregado())); 
 
 
@@ -61,36 +50,33 @@ public class MovimientoDAO {
             else
                 ps.setNull(9, Types.TIMESTAMP);
 
-            // ⭐ Lógica de Costos (Solo para ENTRADAS) ⭐
-            // Se asume que getCosto() es el costo en divisa. getCostoBs() lo calcula/contiene.
+            
             if ("ENTRADA".equalsIgnoreCase(m.getTipo()) && m.getCosto() != null) {
-                // costo_divisa
+                
                 ps.setDouble(10, m.getCosto()); 
-                // costo_bs (se usa el método que prioriza el valor ya seteado en el modelo)
+                
                 double costoBs = m.getCostoBs();
-                if (costoBs >= 0) { // Si el valor es válido (>=0 o el valor seteado por el controlador)
+                if (costoBs >= 0) { 
                     ps.setDouble(11, costoBs);
                 } else {
                     ps.setNull(11, Types.DOUBLE);
                 }
             } else {
-                // Para SALIDA y TRASLADO, los costos son NULL
+                
                 ps.setNull(10, Types.DOUBLE); // costo_divisa
                 ps.setNull(11, Types.DOUBLE); // costo_bs
             }
 
-            // El índice de donado se mueve al 12
+            
             ps.setBoolean(12, m.isDonado());
 
             return ps.executeUpdate() > 0;
         }
     }
 
-    // -------------------------------------------------------------------
-    // ⭐ Obtener Movimiento por ID (Para cargar formulario) ⭐
-    // -------------------------------------------------------------------
+    
     public Movimiento obtenerPorId(int id) throws SQLException {
-        // ⭐ CAMBIO: Se usa costo_divisa y costo_bs en el SELECT
+        
         String sql = """
              SELECT 
                  id_movimiento, id_articulo, tipo, cantidad, id_usuario,
@@ -104,7 +90,7 @@ public class MovimientoDAO {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    // Nota: mapearResultSet ahora lee 'costo_divisa' y 'costo_bs'
+                    
                     return mapearResultSet(rs); 
                 }
             }
@@ -112,35 +98,22 @@ public class MovimientoDAO {
         return null;
     }
     
-    // -------------------------------------------------------------------
-    // ⭐ Buscar y Filtrar Movimientos (Para consultar) ⭐
-    // -------------------------------------------------------------------
-    
-    /**
-     * Método específico para buscar Entradas con filtros opcionales.
-     */
     public List<Movimiento> buscarEntradas(Integer idArticulo, Integer idUbicacion) throws SQLException {
         return buscarMovimientos("ENTRADA", idArticulo, idUbicacion);
     }
     
-    /**
-     * Método específico para buscar Salidas con filtros opcionales.
-     */
+
     public List<Movimiento> buscarSalidas(Integer idArticulo, Integer idUbicacion) throws SQLException {
         return buscarMovimientos("SALIDA", idArticulo, idUbicacion);
     }
 
-    /**
-     * Método específico para buscar Traslados con filtros opcionales.
-     */
+
     public List<Movimiento> buscarTraslados(Integer idArticulo, Integer idUbicacion) throws SQLException {
         return buscarMovimientos("TRASLADO", idArticulo, idUbicacion);
     }
 
 
-    /**
-     * Método genérico para buscar movimientos por tipo y filtros opcionales.
-     */
+
     public List<Movimiento> buscarMovimientos(String tipo, Integer idArticulo, Integer idUbicacion) throws SQLException {
         List<Movimiento> lista = new ArrayList<>();
         
@@ -161,7 +134,7 @@ public class MovimientoDAO {
             WHERE UPPER(m.tipo) = UPPER(?)
             """);
 
-        // Filtros dinámicos
+
         if (idArticulo != null) {
             sqlBuilder.append(" AND m.id_articulo = ?");
         }
@@ -206,13 +179,11 @@ public class MovimientoDAO {
         return lista;
     }
 
-    // -------------------------------------------------------------------
-    // ⭐ Actualizar Movimiento (Para modificar) ⭐
-    // -------------------------------------------------------------------
+
     public boolean actualizarMovimiento(Movimiento m) throws SQLException {
         if (m == null) throw new SQLException("Movimiento nulo");
 
-        // ⭐ CAMBIO: Se usan costo_divisa y costo_bs en el UPDATE
+
         String sql = """
              UPDATE movimiento SET
                  id_articulo = ?,
@@ -240,20 +211,20 @@ public class MovimientoDAO {
             if (m.getFechaVencimiento() != null) ps.setTimestamp(5, m.getFechaVencimiento());
             else ps.setNull(5, Types.TIMESTAMP);
 
-            // ⭐ Lógica de Costos para Actualización (Solo para ENTRADAS) ⭐
+            
             int indexCosto = 6;
             if ("ENTRADA".equalsIgnoreCase(m.getTipo()) && m.getCosto() != null) {
-                // costo_divisa
+                
                 ps.setDouble(indexCosto++, m.getCosto());
-                // costo_bs
-                double costoBs = m.getCostoBs(); // Prioriza el costoBolivar seteado
+                
+                double costoBs = m.getCostoBs(); 
                 if (costoBs >= 0) {
                     ps.setDouble(indexCosto++, costoBs);
                 } else {
                     ps.setNull(indexCosto++, Types.DOUBLE);
                 }
             } else {
-                // Para SALIDA y TRASLADO, los costos son NULL
+                
                 ps.setNull(indexCosto++, Types.DOUBLE); // costo_divisa
                 ps.setNull(indexCosto++, Types.DOUBLE); // costo_bs
             }
@@ -266,9 +237,7 @@ public class MovimientoDAO {
         }
     }
 
-    // -------------------------------------------------------------------
-    // --- Consultas por tipo de movimiento (Listado general) ---
-    // -------------------------------------------------------------------
+    
     public List<Movimiento> listarEntradas() throws SQLException {
         return listarPorTipo("ENTRADA");
     }
@@ -344,10 +313,7 @@ public class MovimientoDAO {
         return lista;
     }
     
-    // -------------------------------------------------------------------
-    // --- HELPERS para Mapeo ---
-    // -------------------------------------------------------------------
-    
+
     private Movimiento mapearResultSet(ResultSet rs) throws SQLException {
         Movimiento mov = new Movimiento();
         
@@ -357,29 +323,29 @@ public class MovimientoDAO {
         mov.setCantidad(rs.getInt("cantidad"));
         mov.setIdArticulo(rs.getInt("id_articulo"));
         
-        // Mapeo de IDs de ubicación
+        
         int idOrigen = rs.getInt("id_ubicacion_origen");
         if (!rs.wasNull()) mov.setIdUbicacionOrigen(idOrigen);
         
         int idDestino = rs.getInt("id_ubicacion_destino");
         if (!rs.wasNull()) mov.setIdUbicacionDestino(idDestino);
         
-        // Mapeo de otros campos
+        
         mov.setEntregado(rs.getString("entregado"));
         mov.setMotivo(rs.getString("motivo"));
         
-        // ⭐ MODIFICACIÓN: Se lee el costo en divisa (costo)
+       
         try {
-             // Intenta leer el alias 'costo' (usado en los JOIN SELECTS)
+             
              mov.setCosto(rs.getDouble("costo"));
              if (rs.wasNull()) mov.setCosto(null);
         } catch (SQLException e) {
-             // Si falla, lee la columna directa 'costo_divisa' (usado en obtenerPorId)
+             
              mov.setCosto(rs.getDouble("costo_divisa"));
              if (rs.wasNull()) mov.setCosto(null);
         }
         
-        // ⭐ AÑADIDO: Mapeo del costo en Bolívares (costo_bs)
+        
         mov.setCostoBolivar(rs.getDouble("costo_bs"));
         if (rs.wasNull()) mov.setCostoBolivar(null);
         

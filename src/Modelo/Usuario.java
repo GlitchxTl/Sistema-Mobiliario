@@ -7,7 +7,7 @@ public class Usuario {
     private String passwordHash;
     private int idRol;
     private boolean activo;
-    private String rol; // Nuevo campo para almacenar el nombre del rol
+    private String rol; 
     
     // Getters y Setters
     public int getIdUsuario() { return idUsuario; }

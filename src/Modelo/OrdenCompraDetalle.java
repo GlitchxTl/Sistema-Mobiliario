@@ -1,32 +1,28 @@
 package Modelo;
 
-/**
- * Entidad de dominio para una línea de Detalle de una Orden de Compra.
- */
+
 public class OrdenCompraDetalle {
 
     private Long idDetalle;
-    private Long idOrdenCompra; // Clave foránea a OrdenCompra
-    private Long idArticulo;    // Clave foránea a Articulo
+    private Long idOrdenCompra;
+    private Long idArticulo;   
     private Integer cantidadPedida;
     private Integer cantidadRecibida;
     private Double precioUnitario;
-    private Double subTotal; // cantidadPedida * precioUnitario
+    private Double subTotal;
     
-    // Campos auxiliares para Vistas/Reportes
+    
     private String nombreArticulo;
     private String codigoArticulo;
 
-    // Constructor vacío
+    
     public OrdenCompraDetalle() {
-        this.cantidadRecibida = 0; // Inicialmente 0
+        this.cantidadRecibida = 0;
     }
     
-    /**
-     * CONSTRUCTOR AÑADIDO: Requerido por el DAO para mapear los resultados de la consulta.
-     */
+
     public OrdenCompraDetalle(Long idDetalle, String codigoArticulo, String nombreArticulo, Integer cantidadPedida, Double precioUnitario) {
-        this(); // Inicializa campos por defecto
+        this(); 
         this.idDetalle = idDetalle;
         this.codigoArticulo = codigoArticulo;
         this.nombreArticulo = nombreArticulo;
@@ -34,10 +30,7 @@ public class OrdenCompraDetalle {
         this.precioUnitario = precioUnitario;
     }
 
-    // -------------------------------------------------------------
-    // --- Getters y Setters ---
-    // -------------------------------------------------------------
-    
+
     public Long getIdDetalle() { return idDetalle; }
     public void setIdDetalle(Long idDetalle) { this.idDetalle = idDetalle; }
 

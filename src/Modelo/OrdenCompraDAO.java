@@ -11,25 +11,16 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.LocalDate;
-import java.sql.Date; // Importación para manejar java.sql.Date
+import java.sql.Date; 
 
-/**
- * Data Access Object (DAO) para la entidad OrdenCompra.
- * Gestiona la persistencia de Órdenes de Compra y sus Detalles.
- */
+
 public class OrdenCompraDAO {
 
     public OrdenCompraDAO() {
-        // Constructor estándar
+        
     }
 
-    // ======================================================================
-    // === MÉTODOS DE CONSULTA (Implementación JDBC) ===
-    // ======================================================================
 
-    /**
-     * Carga todas las Órdenes de Compra (solo encabezado) para la lista principal.
-     */
     public List<OrdenCompra> listarOrdenesCompra() throws SQLException {
         List<OrdenCompra> lista = new ArrayList<>();
         final String SQL = "SELECT oc.*, u.nombre_usuario AS nombre_usuario_emisor FROM ORDEN_COMPRA oc "
@@ -40,11 +31,11 @@ public class OrdenCompraDAO {
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                // CORRECCIÓN: Ajustar el orden de los parámetros del constructor (proveedor, emisor, referencia)
+               
                 OrdenCompra oc = new OrdenCompra(
-                    rs.getString("nombre_proveedor"), // 1. nombreProveedor
-                    rs.getLong("id_usuario_emisor"),  // 2. idUsuarioEmisor
-                    rs.getString("numero_referencia") // 3. numeroReferencia
+                    rs.getString("nombre_proveedor"),
+                    rs.getLong("id_usuario_emisor"), 
+                    rs.getString("numero_referencia")
                 );
                 
                 oc.setIdOrdenCompra(rs.getLong("id_orden_compra"));
@@ -52,7 +43,7 @@ public class OrdenCompraDAO {
                 oc.setEstado(rs.getString("estado"));
                 oc.setMontoTotal(rs.getDouble("monto_total"));
                 
-                // Manejo seguro de fecha nula, usando setFechaEmision(LocalDate)
+                
                 Date sqlDate = rs.getDate("fecha_emision");
                 if (sqlDate != null) {
                     oc.setFechaEmision(sqlDate.toLocalDate());
@@ -67,9 +58,7 @@ public class OrdenCompraDAO {
         return lista;
     }
 
-    /**
-     * Obtiene una Orden de Compra por su ID, incluyendo todos sus detalles.
-     */
+
     public OrdenCompra obtenerOCPorId(Long idOrdenCompra) throws SQLException {
         OrdenCompra orden = null;
         Connection conn = null;
@@ -90,16 +79,16 @@ public class OrdenCompraDAO {
                     if (rs.next()) {
                         // CORRECCIÓN: Ajustar el orden de los parámetros del constructor (proveedor, emisor, referencia)
                         orden = new OrdenCompra(
-                            rs.getString("nombre_proveedor"), // 1. nombreProveedor
-                            rs.getLong("id_usuario_emisor"),  // 2. idUsuarioEmisor
-                            rs.getString("numero_referencia") // 3. numeroReferencia
+                            rs.getString("nombre_proveedor"), 
+                            rs.getLong("id_usuario_emisor"),  
+                            rs.getString("numero_referencia") 
                         );
                         orden.setIdOrdenCompra(rs.getLong("id_orden_compra"));
                         orden.setNombreUsuarioEmisor(rs.getString("nombre_usuario_emisor"));
                         orden.setEstado(rs.getString("estado"));
                         orden.setMontoTotal(rs.getDouble("monto_total"));
                         
-                        // Manejo seguro de fecha nula, usando setFechaEmision(LocalDate)
+                        
                         Date sqlDate = rs.getDate("fecha_emision");
                         if (sqlDate != null) {
                             orden.setFechaEmision(sqlDate.toLocalDate());
@@ -110,7 +99,7 @@ public class OrdenCompraDAO {
                 }
             }
 
-            // 2. Obtener Detalles 
+            
             if (orden != null) {
                 final String SQL_DETAILS = "SELECT d.id_detalle, d.id_articulo_fk, d.cantidad_pedida, d.precio_unitario, d.subtotal, a.codigo, a.nombre AS nombre_articulo FROM ORDEN_COMPRA_DETALLE d "
                                         + "JOIN ARTICULO a ON d.id_articulo_fk = a.id_articulo WHERE d.id_orden_compra_fk = ?";
@@ -151,13 +140,7 @@ public class OrdenCompraDAO {
     }
 
 
-    // ======================================================================
-    // === MÉTODOS DE TRANSACCIÓN ===
-    // ======================================================================
 
-    /**
-     * Guarda el encabezado de la Orden de Compra y sus detalles en una transacción.
-     */
     public Long guardarOrdenCompra(OrdenCompra orden) throws SQLException {
         Connection conn = null;
         Long idGenerado = null;
@@ -170,11 +153,11 @@ public class OrdenCompraDAO {
             
             conn.setAutoCommit(false); 
 
-            // 2. Guardar Encabezado (y obtener el ID generado)
+            
             idGenerado = guardarEncabezado(conn, orden);
             orden.setIdOrdenCompra(idGenerado);
 
-            // 3. Guardar Detalles
+            
             if (orden.getDetalles() != null && !orden.getDetalles().isEmpty()) {
                 for (OrdenCompraDetalle detalle : orden.getDetalles()) {
                     detalle.setIdOrdenCompra(idGenerado);
@@ -182,7 +165,7 @@ public class OrdenCompraDAO {
                 }
             }
             
-            // 4. Actualizar Monto Total (Suma los subtotales de los detalles)
+            
             actualizarMontoTotal(conn, idGenerado);
 
             conn.commit(); 
@@ -206,13 +189,7 @@ public class OrdenCompraDAO {
         }
     }
 
-    // ----------------------------------------------------------------------
-    // --- Métodos Privados de Ejecución (Usados dentro de la transacción) ---
-    // ----------------------------------------------------------------------
 
-    /**
-     * Inserta el encabezado de la orden de compra y devuelve el ID generado.
-     */
     private Long guardarEncabezado(Connection conn, OrdenCompra orden) throws SQLException {
         Long idGenerado = null;
         
@@ -245,9 +222,7 @@ public class OrdenCompraDAO {
         return idGenerado;
     }
 
-    /**
-     * Inserta una línea de detalle de la orden de compra.
-     */
+
     private void guardarDetalle(Connection conn, OrdenCompraDetalle detalle) throws SQLException {
         final String SQL = "INSERT INTO ORDEN_COMPRA_DETALLE (id_orden_compra_fk, id_articulo_fk, cantidad_pedida, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
         
@@ -264,9 +239,7 @@ public class OrdenCompraDAO {
         }
     }
 
-    /**
-     * Recalcula el monto total de la OC sumando todos los subtotales y actualiza el encabezado.
-     */
+
     public void actualizarMontoTotal(Connection conn, Long idOrdenCompra) throws SQLException {
         final String SQL_SUMA = "SELECT SUM(subtotal) FROM ORDEN_COMPRA_DETALLE WHERE id_orden_compra_fk = ?";
         final String SQL_UPDATE = "UPDATE ORDEN_COMPRA SET monto_total = ? WHERE id_orden_compra = ?";

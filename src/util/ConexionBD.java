@@ -11,13 +11,13 @@ public class ConexionBD {
 
     public static Connection conectar() throws SQLException {
         try {
-            // Registrar driver, si falta lanzará ClassNotFoundException
+            
             Class.forName("org.mariadb.jdbc.Driver");
         } catch (ClassNotFoundException e) {
-            // Convertimos a SQLException para que los llamadores solo manejen SQLException
+            
             throw new SQLException("Driver JDBC no encontrado: " + e.getMessage(), e);
         }
-        // Si el driver está presente, obtener la conexión (puede lanzar SQLException)
+        
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 }

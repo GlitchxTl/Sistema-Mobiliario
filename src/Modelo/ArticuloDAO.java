@@ -7,7 +7,7 @@ import java.util.List;
 
 public class ArticuloDAO {
 
-    // MODIFICADO: Se añade int idUsuario
+    
     public boolean crearArticulo(Articulo articulo, int idUsuario) throws SQLException {
         // Se añade 'detalles' y se ajustan los índices
         String sql = "INSERT INTO articulo (nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado, id_usuario_creacion) " +
@@ -26,7 +26,7 @@ public class ArticuloDAO {
             ps.setDouble(7, articulo.getProfundidad());
             ps.setDouble(8, articulo.getEspacioUnitario());
             ps.setBoolean(9, articulo.isDeshabilitado());
-            // idUsuario ahora es el índice 10
+            
             ps.setInt(10, idUsuario);
 
             int filas = ps.executeUpdate();
@@ -42,7 +42,7 @@ public class ArticuloDAO {
 
     public List<Articulo> listarArticulos() throws SQLException {
         List<Articulo> articulos = new ArrayList<>();
-        // Se añade 'detalles' a la selección
+        
         String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -54,9 +54,9 @@ public class ArticuloDAO {
         return articulos;
     }
 
-    // MODIFICADO: Se añade int idUsuario
+    
     public boolean actualizarArticulo(Articulo articulo, int idUsuario) throws SQLException {
-        // Se añade 'detalles' en el SET y se ajustan los índices
+        
         String sql = "UPDATE articulo SET nombre=?, codigo_bien_nacional=?, categoria=?, detalles=?, altura=?, anchura=?, profundidad=?, espacio_unitario=?, deshabilitado=?, id_usuario_modificacion=? WHERE id_articulo=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -97,10 +97,9 @@ public class ArticuloDAO {
         } 
     }
 
-    // Método para Soft Delete (Actualizar estado deshabilitado)
+   
     public boolean actualizarEstado(int idArticulo, boolean deshabilitar) throws SQLException {
-    // Usamos el SQL CAST para convertir el valor entero a BINARY si es necesario, 
-    // o simplemente tratamos la columna como un entero 0/1, lo cual es más común.
+    
     String sql = "UPDATE articulo SET deshabilitado = ? WHERE id_articulo = ?";
     
     try (Connection conn = ConexionBD.conectar();
@@ -109,8 +108,7 @@ public class ArticuloDAO {
         // Convertimos el booleano de Java a 1 o 0 (entero)
         int valorNumerico = deshabilitar ? 1 : 0; 
         
-        // Usamos setInt para enviar el 1 o 0.
-        // Esto tiene mayor compatibilidad con columnas BINARY/BIT/TINYINT usadas como booleanos.
+        
         ps.setInt(1, valorNumerico); 
         
         ps.setInt(2, idArticulo);
@@ -120,7 +118,7 @@ public class ArticuloDAO {
 }
 
     public Articulo obtenerArticuloPorId(int idArticulo) throws SQLException {
-        // Se añade 'detalles' a la selección
+        
         String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE id_articulo=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -134,7 +132,7 @@ public class ArticuloDAO {
 
     public List<Articulo> buscarArticulos(String nombre, String codigoBien) {
         List<Articulo> lista = new ArrayList<>();
-        // Se añade 'detalles' a la selección
+        
         String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE nombre LIKE ? OR codigo_bien_nacional LIKE ?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -150,7 +148,7 @@ public class ArticuloDAO {
 
     public List<Articulo> buscarPorCategoria(String categoria) {
         List<Articulo> lista = new ArrayList<>();
-        // Se añade 'detalles' a la selección
+        
         String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE categoria=?";
         try (Connection conn = ConexionBD.conectar();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -167,7 +165,7 @@ public class ArticuloDAO {
         List<Articulo> lista = new ArrayList<>();
         List<Object> params = new ArrayList<>(); 
         
-        // Se añade 'detalles' a la selección
+        
         StringBuilder sql = new StringBuilder("SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE 1=1");
 
         if (nombre != null && !nombre.trim().isEmpty()) {
@@ -209,7 +207,7 @@ public class ArticuloDAO {
         a.setNombre(rs.getString("nombre"));
         a.setCodigoBienNacional(rs.getString("codigo_bien_nacional"));
         a.setCategoria(rs.getString("categoria"));
-        // NUEVO: Mapear Detalles
+       
         a.setDetalles(rs.getString("detalles")); 
         a.setAltura(rs.getDouble("altura"));
         a.setAnchura(rs.getDouble("anchura"));
@@ -220,7 +218,7 @@ public class ArticuloDAO {
     }
     
     public Articulo buscarPorCodigo(String codigoBienNacional) throws SQLException {
-    // Se añade 'detalles' a la selección
+    
     String sql = "SELECT id_articulo, nombre, codigo_bien_nacional, categoria, detalles, altura, anchura, profundidad, espacio_unitario, deshabilitado FROM articulo WHERE codigo_bien_nacional=?";
     try (Connection conn = ConexionBD.conectar();
          PreparedStatement ps = conn.prepareStatement(sql)) {

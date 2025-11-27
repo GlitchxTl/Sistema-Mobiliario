@@ -9,13 +9,11 @@ import javax.swing.SwingWorker;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
-/**
- * AuthControlador: controlador responsable de autenticación y registro.
- */
+
 public class AuthControlador {
 
     private final UsuarioDAO usuarioDAO;
-    private final LoginVista view; // puede ser null si usamos constructor vacío
+    private final LoginVista view; 
 
     public AuthControlador() {
         this.view = null;
@@ -76,17 +74,14 @@ public class AuthControlador {
         }.execute();
     }
 
-    /**
-     * Registrar usuario con validaciones en el controlador.
-     * Ahora recibe idRol desde la vista y lo asigna al objeto Usuario.
-     */
+    
     public RegistrationResult registrarUsuario(String nombre, String login, String password, int idRol) {
-        // normalizar
+        
         nombre = (nombre == null) ? "" : nombre.trim();
         login = (login == null) ? "" : login.trim();
         password = (password == null) ? "" : password;
 
-        // validaciones de negocio
+        
         if (nombre.isEmpty()) {
             return RegistrationResult.fail("El nombre completo es obligatorio.");
         }
@@ -111,7 +106,7 @@ public class AuthControlador {
             nuevo.setLogin(login);
             nuevo.setPasswordHash(password);
 
-            // asignar rol (si idRol inválido, usar 1 por defecto)
+            
             if (idRol <= 0) idRol = 1;
             nuevo.setIdRol(idRol);
 
@@ -131,7 +126,7 @@ public class AuthControlador {
     }
 
     public boolean registrarUsuarioBool(String nombre, String login, String password) {
-        // versión de compatibilidad (usa rol 1 por defecto)
+        
         return registrarUsuario(nombre, login, password, 1).isSuccess();
     }
 }

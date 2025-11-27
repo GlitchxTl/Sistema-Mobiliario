@@ -6,17 +6,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Controlador para Ubicaciones.
- * Delega todas las operaciones de persistencia al UbicacionDAO.
- */
+
 public class UbicacionControlador {
 
     private final UbicacionDAO ubicacionDAO = new UbicacionDAO();
 
-    /**
-     * Devuelve la lista de todas las ubicaciones desde la base de datos.
-     */
+
     public List<Ubicacion> obtenerTodasUbicaciones() {
         try {
             return ubicacionDAO.listar(); 
@@ -27,7 +22,7 @@ public class UbicacionControlador {
         }
     }
     
-    // ⭐ MÉTODO PARA SOFT DELETE / HABILITAR (Delegación correcta) ⭐
+ 
     public boolean actualizarEstadoDeshabilitado(int idUbicacion, boolean nuevoEstado) {
         try {
             return ubicacionDAO.actualizarEstado(idUbicacion, nuevoEstado);
@@ -74,8 +69,7 @@ public class UbicacionControlador {
     }
 
     public boolean eliminarUbicacionPorId(int id_ubicacion) {
-        // NOTA: Este método ejecuta una ELIMINACIÓN FÍSICA (DELETE). 
-        // Para usar el Soft Delete, se debe usar 'actualizarEstadoDeshabilitado' con 'true'.
+        
         try {
             return ubicacionDAO.eliminar(id_ubicacion); 
         } catch (SQLException e) {
@@ -89,8 +83,7 @@ public class UbicacionControlador {
         List<String> nombres = new ArrayList<>();
         try {
             List<Ubicacion> lista = ubicacionDAO.listar(); 
-            // Si necesitas solo los nombres de ubicaciones HABILITADAS, debes filtrar la lista aquí
-            // o crear un método específico en el DAO (e.g., listarNombresHabilitados()).
+            
             for (Ubicacion u : lista) {
                 nombres.add(u.getNombre());
             }

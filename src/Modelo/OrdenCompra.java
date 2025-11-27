@@ -1,38 +1,36 @@
 package Modelo;
 
-import java.time.LocalDate; // ¡Importante: Usamos java.time.LocalDate!
+import java.time.LocalDate; 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Entidad de dominio para una Orden de Compra (Encabezado).
- */
+
 public class OrdenCompra {
 
     private Long idOrdenCompra;
-    private Long idProveedor; // Clave foránea a la tabla Proveedor
-    private Long idUsuarioEmisor; // Clave foránea a la tabla Usuario (quién la creó)
-    private LocalDate fechaEmision; // TIPO DE DATO CORREGIDO
-    private String numeroReferencia; // Puede ser el número secuencial generado
-    private String estado; // Ej: "PENDIENTE", "AUTORIZADA", "RECIBIDA_COMPLETA", etc.
-    private Double montoTotal; // Se calcula a partir de los detalles
+    private Long idProveedor; 
+    private Long idUsuarioEmisor; 
+    private LocalDate fechaEmision; 
+    private String numeroReferencia; 
+    private String estado; 
+    private Double montoTotal; 
     
-    // Campo auxiliar / Principal (según tu vista) para mostrar el nombre del Proveedor
+    
     private String nombreProveedor;
     
-    // Campo auxiliar para mostrar el nombre del Usuario Emisor en Consultas/Listados
+    
     private String nombreUsuarioEmisor; 
     
-    // Lista de detalles de la orden (No se mapea directamente a la tabla OC)
+    
     private List<OrdenCompraDetalle> detalles; 
 
     // Constructor vacío (necesario para ORMs/DAOs)
     public OrdenCompra() {
-        // Inicialización de la lista de detalles para evitar NullPointerExceptions
+        
         this.detalles = new ArrayList<>(); 
     }
     
-    // CONSTRUCTOR ADAPTADO PARA LA VISTA: (Orden: proveedor, emisor_id, ref)
+    
     public OrdenCompra(String nombreProveedor, Long idUsuarioEmisor, String numeroReferencia) {
         this(); // Llama al constructor vacío para inicializar detalles
         this.nombreProveedor = nombreProveedor;
@@ -44,9 +42,6 @@ public class OrdenCompra {
         this.idProveedor = null; 
     }
 
-    // -------------------------------------------------------------
-    // --- Getters y Setters ---
-    // -------------------------------------------------------------
 
     public Long getIdOrdenCompra() { return idOrdenCompra; }
     public void setIdOrdenCompra(Long idOrdenCompra) { this.idOrdenCompra = idOrdenCompra; }
@@ -68,7 +63,7 @@ public class OrdenCompra {
     public String getNombreUsuarioEmisor() { return nombreUsuarioEmisor; }
     public void setNombreUsuarioEmisor(String nombreUsuarioEmisor) { this.nombreUsuarioEmisor = nombreUsuarioEmisor; }
     
-    // FIRMA CORREGIDA PARA LocalDate
+    
     public LocalDate getFechaEmision() { return fechaEmision; }
     public void setFechaEmision(LocalDate fechaEmision) { this.fechaEmision = fechaEmision; }
 

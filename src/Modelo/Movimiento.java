@@ -3,10 +3,7 @@ package Modelo;
 import java.sql.Timestamp;
 import util.GestorBcv;
 
-/**
- * Representa un movimiento de inventario (entrada, salida o traslado).
- * Compatible con la estructura actual de la tabla 'movimiento'.
- */
+
 public class Movimiento {
 
     private int idMovimiento;
@@ -24,17 +21,16 @@ public class Movimiento {
     private String descripcion;
     private String entregado;
     private Timestamp fechaVencimiento;
-    private Double costo; // Costo en divisa ($), campo original
+    private Double costo; 
     private boolean donado;
     
-    // ⭐ CAMPO AÑADIDO: Para almacenar el costo en Bolívares (bs) al registrar la entrada.
+    
     private Double costoBolivar; 
     
-    // ⭐ CAMPO AÑADIDO: Se incluye para que los métodos getPrecioVentaBs() solicitados compilen.
-    // En un modelo de dominio estricto, este campo podría pertenecer a la clase Articulo.
+    
     private Double precioVenta; 
 
-    // --- Getters y Setters ---
+    
 
     public int getIdMovimiento() { return idMovimiento; }
     public void setIdMovimiento(int idMovimiento) { this.idMovimiento = idMovimiento; }
@@ -81,30 +77,25 @@ public class Movimiento {
     public Timestamp getFechaVencimiento() { return fechaVencimiento; }
     public void setFechaVencimiento(Timestamp fechaVencimiento) { this.fechaVencimiento = fechaVencimiento; }
 
-    // Costo original (Divisa)
+    
     public Double getCosto() { return costo; }
     public void setCosto(Double costo) { this.costo = costo; }
 
     public boolean isDonado() { return donado; }
     public void setDonado(boolean donado) { this.donado = donado; }
     
-    // ⭐ GETTER Y SETTER PARA EL NUEVO CAMPO costoBolivar ⭐
+    
     public Double getCostoBolivar() { return costoBolivar; }
     public void setCostoBolivar(Double costoBolivar) { this.costoBolivar = costoBolivar; }
     
-    // GETTER Y SETTER PARA EL CAMPO precioVenta
+    
     public Double getPrecioVenta() { return precioVenta; }
     public void setPrecioVenta(Double precioVenta) { this.precioVenta = precioVenta; }
 
 
-    // --- MÉTODOS DE CÁLCULO DE BOLÍVARES (Bs) ---
-
-    /**
-     * Calcula el precio de venta en Bolívares (Bs) usando la tasa de cambio actual.
-     * @return El precio de venta en Bolívares, o -1.0 si la tasa no es válida o el precio no está definido.
-     */
+    
     public double getPrecioVentaBs() {
-        // Se asume que this.precioVenta está en Divisa (USD, EUR, etc.)
+        
         if (this.precioVenta == null || this.precioVenta <= 0) {
             return -1.0;
         }
@@ -116,14 +107,9 @@ public class Movimiento {
         return this.precioVenta * tasa;
     }
     
-    /**
-     * Calcula el costo del movimiento en Bolívares (Bs) usando la tasa de cambio actual.
-     * Si el campo costoBolivar está guardado, lo devuelve directamente (para usar el costo histórico).
-     * Si no está guardado, lo calcula usando la tasa actual y el costo en divisa.
-     * @return El costo en Bolívares, o -1.0 si la tasa no es válida o el costo no está definido.
-     */
+   
     public double getCostoBs() {
-        // ⭐ PRIORIZA el costoBolivar guardado (si existe) para el registro histórico
+        
         if (this.costoBolivar != null && this.costoBolivar > 0) {
             return this.costoBolivar;
         }
@@ -141,7 +127,7 @@ public class Movimiento {
     }
     
     
-    // --- MÉTODOS AUXILIARES ---
+    
 
     @Override
     public String toString() {

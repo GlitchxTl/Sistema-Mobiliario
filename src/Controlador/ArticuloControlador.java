@@ -10,10 +10,10 @@ import java.util.List;
 public class ArticuloControlador {
     private final ArticuloDAO articuloDAO = new ArticuloDAO();
 
-    // MODIFICADO: Se añade int idUsuario
+    
     public boolean crearArticulo(Articulo articulo, int idUsuario) {
         try {
-            // Pasar idUsuario al DAO
+            
             return articuloDAO.crearArticulo(articulo, idUsuario);
         } catch (SQLException e) {
             System.err.println("Error al crear artículo: " + e.getMessage());
@@ -32,10 +32,10 @@ public class ArticuloControlador {
         }
     }
 
-    // MODIFICADO: Se añade int idUsuario
+    
     public boolean actualizarArticulo(Articulo articulo, int idUsuario) {
         try {
-            // Pasar idUsuario al DAO
+            
             return articuloDAO.actualizarArticulo(articulo, idUsuario);
         } catch (SQLException e) {
             System.err.println("Error al actualizar artículo: " + e.getMessage());
@@ -64,7 +64,7 @@ public class ArticuloControlador {
         }
     }
 
-    // Nuevo método para Soft Delete
+    
     public boolean actualizarEstadoDeshabilitado(int idArticulo, boolean nuevoEstado) {
         try {
             return articuloDAO.actualizarEstado(idArticulo, nuevoEstado);
